@@ -75,7 +75,11 @@ class ProcessMindDumpUseCase @Inject constructor(
                 isCompleted = false,
                 skippedCount = 0,
                 lastShownAt = 0L,
-                createdAt = System.currentTimeMillis()
+                createdAt = System.currentTimeMillis(),
+                aiDraftType = item.aiDraftType,
+                aiDraftContent = item.aiDraftContent,
+                scheduledDateMillis = item.scheduledDateMillis,
+                scheduledTimeText = item.scheduledTimeText
             )
 
             tasksToInsert.add(task)

@@ -22,4 +22,7 @@ interface SbrosRepository {
     suspend fun skipTask(taskId: String)
     suspend fun completeTask(taskId: String)
     suspend fun applySoftAmnesty(): Int
+    fun getScheduledTasks(): Flow<List<TaskItem>>
+    fun getTasksForDate(startOfDay: Long, endOfDay: Long): Flow<List<TaskItem>>
+    suspend fun updateTaskSchedule(taskId: String, dateMillis: Long?, timeText: String?)
 }

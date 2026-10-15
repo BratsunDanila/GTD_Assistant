@@ -40,5 +40,9 @@ data class TaskEntity(
     val isCompleted: Boolean = false,
     val skippedCount: Int = 0,         // Сколько раз нажали "Не сейчас" (для мягкой амнистии)
     val lastShownAt: Long = 0L,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val aiDraftType: String = "",       // "Черновик сообщения", "Стартовый план", "Поисковый фильтр ИИ"
+    val aiDraftContent: String = "",    // Текст заготовки или 3 буллита от ИИ
+    val scheduledDateMillis: Long? = null, // Время дня дедлайна в мс для Календаря
+    val scheduledTimeText: String? = null  // "14:00", "18:00"
 )

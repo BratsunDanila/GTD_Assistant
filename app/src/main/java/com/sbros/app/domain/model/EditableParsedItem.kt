@@ -12,5 +12,9 @@ data class EditableParsedItem(
     val estimatedMinutes: Int = 5,
     val simplifiedSteps: List<String> = emptyList(),
     val matchedProjectId: String? = null,
-    val newProjectTitle: String? = null
+    val newProjectTitle: String? = null,
+    val aiDraftType: String = "",
+    val aiDraftContent: String = "",
+    val scheduledDateMillis: Long? = null,
+    val scheduledTimeText: String? = null
 )

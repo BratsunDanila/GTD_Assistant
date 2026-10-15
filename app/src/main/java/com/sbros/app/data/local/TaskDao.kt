@@ -90,6 +90,15 @@ interface TaskDao {
     )
     suspend fun applySoftAmnesty(now: Long = System.currentTimeMillis()): Int
 
+    @Query("SELECT * FROM tasks WHERE scheduledDateMillis IS NOT NULL AND isCompleted = 0 ORDER BY scheduledDateMillis ASC")
+    fun getScheduledTasks(): Flow<List<TaskEntity>>
+
+    @Query("SELECT * FROM tasks WHERE scheduledDateMillis >= :startOfDay AND scheduledDateMillis <= :endOfDay AND isCompleted = 0 ORDER BY scheduledDateMillis ASC")
+    fun getTasksForDate(startOfDay: Long, endOfDay: Long): Flow<List<TaskEntity>>
+
+    @Query("UPDATE tasks SET scheduledDateMillis = :dateMillis, scheduledTimeText = :timeText WHERE id = :taskId")
+    suspend fun updateTaskSchedule(taskId: String, dateMillis: Long?, timeText: String?)
+
     @Query("SELECT COUNT(*) FROM tasks")
     suspend fun getTaskCount(): Int
 }

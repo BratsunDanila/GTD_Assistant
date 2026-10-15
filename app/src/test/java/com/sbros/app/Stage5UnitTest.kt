@@ -99,6 +99,25 @@ class FakeFullSbrosRepository : SbrosRepository {
         }
     }
 
+    override fun getScheduledTasks(): Flow<List<TaskItem>> {
+        return tasks.map { list ->
+            list.filter { it.scheduledDateMillis != null && !it.isCompleted }
+                .sortedBy { it.scheduledDateMillis }
+        }
+    }
+
+    override fun getTasksForDate(startOfDay: Long, endOfDay: Long): Flow<List<TaskItem>> {
+        return tasks.map { list ->
+            list.filter { it.scheduledDateMillis != null && it.scheduledDateMillis in startOfDay..endOfDay && !it.isCompleted }
+        }
+    }
+
+    override suspend fun updateTaskSchedule(taskId: String, scheduledDateMillis: Long?, scheduledTimeText: String?) {
+        tasks.value = tasks.value.map {
+            if (it.id == taskId) it.copy(scheduledDateMillis = scheduledDateMillis, scheduledTimeText = scheduledTimeText) else it
+        }
+    }
+
     override suspend fun applySoftAmnesty(): Int = 0
 }
 

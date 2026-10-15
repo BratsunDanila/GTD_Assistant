@@ -88,4 +88,16 @@ class SbrosRepositoryImpl @Inject constructor(
     override suspend fun applySoftAmnesty(): Int {
         return taskDao.applySoftAmnesty(System.currentTimeMillis())
     }
+
+    override fun getScheduledTasks(): Flow<List<TaskItem>> {
+        return taskDao.getScheduledTasks().map { list -> list.map { it.toDomain() } }
+    }
+
+    override fun getTasksForDate(startOfDay: Long, endOfDay: Long): Flow<List<TaskItem>> {
+        return taskDao.getTasksForDate(startOfDay, endOfDay).map { list -> list.map { it.toDomain() } }
+    }
+
+    override suspend fun updateTaskSchedule(taskId: String, dateMillis: Long?, timeText: String?) {
+        taskDao.updateTaskSchedule(taskId, dateMillis, timeText)
+    }
 }

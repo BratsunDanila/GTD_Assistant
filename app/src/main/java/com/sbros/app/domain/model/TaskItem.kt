@@ -18,7 +18,11 @@ data class TaskItem(
     val isCompleted: Boolean = false,
     val skippedCount: Int = 0,
     val lastShownAt: Long = 0L,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val aiDraftType: String = "",
+    val aiDraftContent: String = "",
+    val scheduledDateMillis: Long? = null,
+    val scheduledTimeText: String? = null
 ) {
     /**
      * Возвращает текущий текст шага с учетом нажатий кнопки «Проще».
@@ -50,7 +54,11 @@ fun TaskEntity.toDomain(): TaskItem = TaskItem(
     isCompleted = isCompleted,
     skippedCount = skippedCount,
     lastShownAt = lastShownAt,
-    createdAt = createdAt
+    createdAt = createdAt,
+    aiDraftType = aiDraftType,
+    aiDraftContent = aiDraftContent,
+    scheduledDateMillis = scheduledDateMillis,
+    scheduledTimeText = scheduledTimeText
 )
 
 fun TaskItem.toEntity(): TaskEntity = TaskEntity(
@@ -69,5 +77,9 @@ fun TaskItem.toEntity(): TaskEntity = TaskEntity(
     isCompleted = isCompleted,
     skippedCount = skippedCount,
     lastShownAt = lastShownAt,
-    createdAt = createdAt
+    createdAt = createdAt,
+    aiDraftType = aiDraftType,
+    aiDraftContent = aiDraftContent,
+    scheduledDateMillis = scheduledDateMillis,
+    scheduledTimeText = scheduledTimeText
 )

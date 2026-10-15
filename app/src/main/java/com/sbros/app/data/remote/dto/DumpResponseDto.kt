@@ -30,5 +30,13 @@ data class ParsedItemDto(
     @SerialName("matched_project_id")
     val matchedProjectId: String? = null,
     @SerialName("new_project_title")
-    val newProjectTitle: String? = null
+    val newProjectTitle: String? = null,
+    @SerialName("ai_draft_type")
+    val aiDraftType: String = "",
+    @SerialName("ai_draft_content")
+    val aiDraftContent: String = "",
+    @SerialName("scheduled_date_millis")
+    val scheduledDateMillis: Long? = null,
+    @SerialName("scheduled_time_text")
+    val scheduledTimeText: String? = null
 )

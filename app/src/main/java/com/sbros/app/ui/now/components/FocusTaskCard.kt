@@ -2,6 +2,8 @@ package com.sbros.app.ui.now.components
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -13,6 +15,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,11 +47,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -56,13 +62,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sbros.app.domain.model.TaskItem
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /**
- * Карточка задачи v3.0 (по спецификации sbros_v3_swipe.html):
+ * Карточка задачи v4.0 (по спецификации sbros_v4.html):
+ * - 3D стопка карточек (stack-bg-3 со scale 0.88f и offset y=26.dp, stack-bg-2 со scale 0.94f и offset y=13.dp)
+ * - Динамическая интерполяция подъема stack-bg-2 при перетаскивании верхней карточки
  * - Свайп ВПРАВО (> 250f): задача выполнена (onComplete()), проявляется бейдж «✓ СДЕЛАНО»
  * - Свайп ВЛЕВО (< -250f): отложить задачу (onSkip()), проявляется бейдж «↷ ПОТОМ»
- * - Подложка второй карточки (scale 0.93f, offset y = 14.dp)
- * - Компактная пилюля «Сделать проще» (auto_awesome + 1/3)
+ * - Тактильные пружинящие анимации (Spring physics)
  */
 @Composable
 fun FocusTaskCard(
@@ -71,6 +79,7 @@ fun FocusTaskCard(
     onSimplify: () -> Unit,
     onSkip: () -> Unit,
     onComplete: () -> Unit,
+    remainingInStack: Int = 1,
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -81,32 +90,54 @@ fun FocusTaskCard(
     }
 
     Box(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 28.dp),
         contentAlignment = Alignment.Center
     ) {
-        // 1. Подложка второй карточки в стопке (для объема колоды)
-        if (task != null && !showCompletionFeedback) {
+        // Прогресс перетаскивания от 0f до 1f
+        val dragProgress = (abs(offsetX.value) / 120f).coerceIn(0f, 1f)
+
+        // 1. Подложка 3-й карточки в стопке (stack-bg-3)
+        if (task != null && !showCompletionFeedback && remainingInStack >= 3) {
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .matchParentSize()
                     .graphicsLayer {
-                        scaleX = 0.93f
-                        scaleY = 0.93f
-                        translationY = 14.dp.toPx()
-                        alpha = 0.55f
+                        scaleX = 0.88f
+                        scaleY = 0.88f
+                        translationY = 26.dp.toPx()
+                        alpha = 0.45f
                     },
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(26.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLowest,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                 tonalElevation = 1.dp,
                 shadowElevation = 1.dp
-            ) {
-                // Пустая заполнитель-высота для подложки
-                Spacer(modifier = Modifier.height(230.dp))
-            }
+            ) {}
         }
 
-        // 2. Активная верхняя карточка с жестами свайпа
+        // 2. Подложка 2-й карточки в стопке (stack-bg-2) — физически поднимается на место первой при свайпе
+        if (task != null && !showCompletionFeedback && remainingInStack >= 2) {
+            Surface(
+                modifier = Modifier
+                    .matchParentSize()
+                    .graphicsLayer {
+                        val scale = 0.94f + 0.06f * dragProgress
+                        scaleX = scale
+                        scaleY = scale
+                        translationY = (13f - 13f * dragProgress).dp.toPx()
+                        alpha = 0.75f
+                    },
+                shape = RoundedCornerShape(26.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                tonalElevation = 1.5.dp,
+                shadowElevation = 2.dp
+            ) {}
+        }
+
+        // 3. Активная верхняя карточка с жестами свайпа
         val tiltAngle = (offsetX.value * 0.04f).coerceIn(-18f, 18f)
         val doneStampOpacity = (offsetX.value / 120f).coerceIn(0f, 1f)
         val laterStampOpacity = (-offsetX.value / 120f).coerceIn(0f, 1f)
@@ -136,16 +167,29 @@ fun FocusTaskCard(
                                         offsetX.snapTo(0f)
                                     }
                                     else -> {
-                                        offsetX.animateTo(0f, spring(dampingRatio = 0.75f, stiffness = 420f))
+                                        offsetX.animateTo(
+                                            0f,
+                                            spring(
+                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                stiffness = Spring.StiffnessLow
+                                            )
+                                        )
                                     }
                                 }
                             }
                         },
                         onDragCancel = {
                             coroutineScope.launch {
-                                offsetX.animateTo(0f)
+                                offsetX.animateTo(
+                                    0f,
+                                    spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    )
+                                )
                             }
                         },
+
                         onHorizontalDrag = { change, dragAmount ->
                             change.consume()
                             coroutineScope.launch {
@@ -258,12 +302,22 @@ fun FocusTaskCard(
 
                             Spacer(modifier = Modifier.height(18.dp))
 
-                            // Центральный блок: крупный текст шага (анимируется при упрощении)
+                            // Центральный блок: крупный текст шага (анимируется при упрощении с пружинящей физикой)
                             AnimatedContent(
                                 targetState = task.currentStepText,
                                 transitionSpec = {
-                                    (slideInVertically { height -> height / 2 } + fadeIn()) togetherWith
-                                            (slideOutVertically { height -> -height / 2 } + fadeOut())
+                                    (slideInVertically(
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessLow
+                                        )
+                                    ) { height -> height / 2 } + fadeIn()) togetherWith
+                                            (slideOutVertically(
+                                                animationSpec = spring(
+                                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                                    stiffness = Spring.StiffnessMedium
+                                                )
+                                            ) { height -> -height / 2 } + fadeOut())
                                 },
                                 label = "taskTitleTransition"
                             ) { currentText ->
@@ -355,19 +409,33 @@ fun FocusTaskCard(
                                     )
                                 }
 
-                                // Аккуратная пилюля «Сделать проще» с иконкой и счетчиком 1/3
+                                // Аккуратная пилюля «Сделать проще» с тактильной пружиной и счетчиком 1/3
                                 val simplifyTotal = task.simplifiedSteps.size + 1
                                 val currentStepNumber = (task.currentSimplifyIndex + 1).coerceAtMost(simplifyTotal)
 
+                                val simplifyInteractionSource = remember { MutableInteractionSource() }
+                                val isSimplifyPressed by simplifyInteractionSource.collectIsPressedAsState()
+                                val simplifyScale by animateFloatAsState(
+                                    targetValue = if (isSimplifyPressed) 0.88f else 1f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    ),
+                                    label = "simplifyScale"
+                                )
+
                                 FilledTonalButton(
                                     onClick = onSimplify,
+                                    interactionSource = simplifyInteractionSource,
                                     shape = CircleShape,
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                     colors = ButtonDefaults.filledTonalButtonColors(
                                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                     ),
-                                    modifier = Modifier.height(36.dp)
+                                    modifier = Modifier
+                                        .height(36.dp)
+                                        .scale(simplifyScale)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.AutoAwesome,

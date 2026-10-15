@@ -4,8 +4,19 @@ import com.sbros.app.data.local.entity.ProjectEntity
 import com.sbros.app.data.local.entity.TaskEntity
 import com.sbros.app.domain.model.EnergyLevel
 import com.sbros.app.domain.model.ShelfType
+import java.util.Calendar
 
 object SeedData {
+
+    private fun getDayTimestamp(offsetDays: Int, hour: Int, minute: Int): Long {
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.DAY_OF_YEAR, offsetDays)
+        cal.set(Calendar.HOUR_OF_DAY, hour)
+        cal.set(Calendar.MINUTE, minute)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return cal.timeInMillis
+    }
 
     val initialProjects = listOf(
         ProjectEntity(
@@ -41,7 +52,11 @@ object SeedData {
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 1000L,
-            createdAt = System.currentTimeMillis() - 3600000L * 3
+            createdAt = System.currentTimeMillis() - 3600000L * 3,
+            aiDraftType = "Поисковый фильтр ИИ",
+            aiDraftContent = "Рекомендация: бери Ni-MH от 2000 mAh (например, GP или Robiton) — они держат вспышку и объектив без просадки напряжения.",
+            scheduledDateMillis = getDayTimestamp(1, 12, 0),
+            scheduledTimeText = "12:00"
         ),
 
         // 2. Легкое (EASY) — Зарядка батареек
@@ -64,7 +79,11 @@ object SeedData {
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 2000L,
-            createdAt = System.currentTimeMillis() - 3600000L * 2
+            createdAt = System.currentTimeMillis() - 3600000L * 2,
+            aiDraftType = "Быстрая подсказка",
+            aiDraftContent = "Проверь, чтобы оба аккумулятора были из одной пары перед установкой в слоты зарядного устройства.",
+            scheduledDateMillis = null,
+            scheduledTimeText = null
         ),
 
         // 3. На 5 мин (FIVE_MIN) — Сообщение старосте
@@ -87,7 +106,11 @@ object SeedData {
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 1000L,
-            createdAt = System.currentTimeMillis() - 3600000L * 4
+            createdAt = System.currentTimeMillis() - 3600000L * 4,
+            aiDraftType = "Черновик сообщения",
+            aiDraftContent = "«Привет! Запиши мою тему курсовой: Разработка мобильного GTD-ассистента со свайпами и голосовым вводом»",
+            scheduledDateMillis = getDayTimestamp(0, 16, 0),
+            scheduledTimeText = "16:00"
         ),
 
         // 4. Поработать (FOCUS) — Курсовая: 1-й шаг
@@ -110,7 +133,11 @@ object SeedData {
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 1000L,
-            createdAt = System.currentTimeMillis() - 3600000L * 5
+            createdAt = System.currentTimeMillis() - 3600000L * 5,
+            aiDraftType = "Стартовый каркас текста",
+            aiDraftContent = "1. Проблема перегруза в классических таск-менеджерах.\n2. Снижение порога входа за счет голосового потока (Mind Sweep).\n3. Автоматическая декомпозиция задач через LLM.",
+            scheduledDateMillis = getDayTimestamp(0, 14, 0),
+            scheduledTimeText = "14:00"
         ),
 
         // 5. Поработать (FOCUS) — Курсовая: 2-й шаг (скрыт внутри проекта)
@@ -133,7 +160,11 @@ object SeedData {
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 0L,
-            createdAt = System.currentTimeMillis() - 3600000L * 5
+            createdAt = System.currentTimeMillis() - 3600000L * 5,
+            aiDraftType = "Стартовый план",
+            aiDraftContent = "Глава 1. Анализ методологий GTD.\nГлава 2. Архитектура и стек Compose + Room.\nГлава 3. Оценка когнитивной нагрузки пользователя.",
+            scheduledDateMillis = null,
+            scheduledTimeText = null
         ),
 
         // 6. Поработать (FOCUS) — Приложение «Сброс»: 1-й шаг
@@ -156,7 +187,11 @@ object SeedData {
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 2000L,
-            createdAt = System.currentTimeMillis() - 3600000L * 6
+            createdAt = System.currentTimeMillis() - 3600000L * 6,
+            aiDraftType = "Совет ИИ",
+            aiDraftContent = "Тональные палитры Material 3 обеспечивают комфортный контраст в светлой и тёмной темах.",
+            scheduledDateMillis = null,
+            scheduledTimeText = null
         ),
 
         // 7. Жду от других (WAITING)
@@ -179,7 +214,11 @@ object SeedData {
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 0L,
-            createdAt = System.currentTimeMillis() - 3600000L * 7
+            createdAt = System.currentTimeMillis() - 3600000L * 7,
+            aiDraftType = "Черновик напоминания",
+            aiDraftContent = "«Здравствуйте! Подскажите, пожалуйста, удалось ли посмотреть черновик главы?»",
+            scheduledDateMillis = getDayTimestamp(-1, 14, 0),
+            scheduledTimeText = "14:00"
         ),
 
         // 8. На потом и отдых (SOMEDAY)
@@ -202,7 +241,65 @@ object SeedData {
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 0L,
-            createdAt = System.currentTimeMillis() - 3600000L * 8
+            createdAt = System.currentTimeMillis() - 3600000L * 8,
+            aiDraftType = "План отдыха",
+            aiDraftContent = "Дюна 2 идет 2 ч 46 мин. Отличный повод заказать попкорн и полностью отключить уведомления.",
+            scheduledDateMillis = getDayTimestamp(0, 20, 0),
+            scheduledTimeText = "20:00"
+        ),
+
+        // 9. Календарная задача: Лабораторная (вчера/четверг)
+        TaskEntity(
+            id = "task-cal-lab-report",
+            projectId = null,
+            orderInProject = 0,
+            originalQuote = "сдать отчет по лабораторной в четверг в 18:00",
+            title = "Сдать отчет по лабораторной",
+            simplifiedSteps = listOf(
+                "Проверить титульный лист",
+                "Загрузить в личный кабинет студента"
+            ),
+            currentSimplifyIndex = 0,
+            aiHint = "Дедлайн зафиксирован в календаре.",
+            categoryBadge = "📚 Учеба • Дедлайн",
+            estimatedMinutes = 15,
+            shelf = ShelfType.SIMPLE_STEPS,
+            energyLevel = EnergyLevel.FOCUS,
+            isCompleted = false,
+            skippedCount = 0,
+            lastShownAt = 0L,
+            createdAt = System.currentTimeMillis() - 86400000L,
+            aiDraftType = "Чек-лист проверки",
+            aiDraftContent = "1. Номер варианта.\n2. Выводы по работе.\n3. Скриншоты работы программы.",
+            scheduledDateMillis = getDayTimestamp(-1, 18, 0),
+            scheduledTimeText = "18:00"
+        ),
+
+        // 10. Календарная задача: Кафедра (понедельник)
+        TaskEntity(
+            id = "task-cal-department",
+            projectId = null,
+            orderInProject = 0,
+            originalQuote = "в понедельник в 10:00 утвердить финальную тему",
+            title = "Утвердить финальную тему на кафедре",
+            simplifiedSteps = listOf(
+                "Взять подписанное заявление",
+                "Зайти в кабинет 402"
+            ),
+            currentSimplifyIndex = 0,
+            aiHint = "Критический дедлайн по курсовой.",
+            categoryBadge = "🔥 Жесткий дедлайн",
+            estimatedMinutes = 10,
+            shelf = ShelfType.SIMPLE_STEPS,
+            energyLevel = EnergyLevel.FIVE_MIN,
+            isCompleted = false,
+            skippedCount = 0,
+            lastShownAt = 0L,
+            createdAt = System.currentTimeMillis() - 86400000L,
+            aiDraftType = "Шаблон заявления",
+            aiDraftContent = "«Прошу утвердить тему курсовой работы: Разработка интеллектуального таск-ассистента на Android.»",
+            scheduledDateMillis = getDayTimestamp(3, 10, 0),
+            scheduledTimeText = "10:00"
         )
     )
 }

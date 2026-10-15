@@ -8,7 +8,7 @@ import com.sbros.app.data.local.entity.TaskEntity
 
 @Database(
     entities = [ProjectEntity::class, TaskEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

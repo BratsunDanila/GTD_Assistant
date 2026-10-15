@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.WbTwilight
+import androidx.compose.material.icons.filled.Style
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.WbTwilight
+import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.sbros.app.ui.calendar.CalendarScreen
 import com.sbros.app.ui.capture.CaptureBottomSheet
 import com.sbros.app.ui.capture.CaptureMode
 import com.sbros.app.ui.now.NowScreen
@@ -80,7 +83,7 @@ fun SbrosAppShell(
                         duration = SnackbarDuration.Short
                     )
                     if (result == SnackbarResult.ActionPerformed) {
-                        selectedTab = 1
+                        selectedTab = 2
                     }
                 }
             }
@@ -101,7 +104,7 @@ fun SbrosAppShell(
                     onClick = { selectedTab = 0 },
                     icon = {
                         Icon(
-                            imageVector = if (selectedTab == 0) Icons.Filled.WbTwilight else Icons.Outlined.WbTwilight,
+                            imageVector = if (selectedTab == 0) Icons.Filled.Style else Icons.Outlined.Style,
                             contentDescription = "Сейчас"
                         )
                     },
@@ -120,20 +123,45 @@ fun SbrosAppShell(
                     )
                 )
 
-                // Вкладка 2: Полки
+                // Вкладка 2: Календарь
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
                     icon = {
                         Icon(
-                            imageVector = if (selectedTab == 1) Icons.Filled.Inventory2 else Icons.Outlined.Inventory2,
+                            imageVector = if (selectedTab == 1) Icons.Filled.CalendarMonth else Icons.Outlined.CalendarMonth,
+                            contentDescription = "Календарь"
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = "Календарь",
+                            fontWeight = if (selectedTab == 1) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+
+                // Вкладка 3: Полки
+                NavigationBarItem(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    icon = {
+                        Icon(
+                            imageVector = if (selectedTab == 2) Icons.Filled.Inventory2 else Icons.Outlined.Inventory2,
                             contentDescription = "Полки"
                         )
                     },
                     label = {
                         Text(
                             text = "Полки",
-                            fontWeight = if (selectedTab == 1) FontWeight.SemiBold else FontWeight.Normal
+                            fontWeight = if (selectedTab == 2) FontWeight.SemiBold else FontWeight.Normal
                         )
                     },
                     colors = NavigationBarItemDefaults.colors(
@@ -167,6 +195,9 @@ fun SbrosAppShell(
                     )
                 }
                 1 -> {
+                    CalendarScreen()
+                }
+                2 -> {
                     ShelvesScreen()
                 }
             }
