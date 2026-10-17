@@ -43,6 +43,15 @@ object DatabaseModule {
                         database.taskDao().insertTasks(SeedData.initialTasks)
                     }
                 }
+
+                override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
+                    super.onDestructiveMigration(db)
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val database = databaseProvider.get()
+                        database.projectDao().insertProjects(SeedData.initialProjects)
+                        database.taskDao().insertTasks(SeedData.initialTasks)
+                    }
+                }
             })
             .fallbackToDestructiveMigration()
             .build()
