@@ -92,6 +92,12 @@ class FakeSbrosRepository : SbrosRepository {
         }
     }
 
+    override fun getQuickWinTask(): Flow<TaskItem?> {
+        return tasks.map { list ->
+            list.firstOrNull { it.estimatedMinutes <= 2 && !it.isCompleted && (it.shelf == ShelfType.SIMPLE_STEPS || it.shelf == ShelfType.BIG_THINGS) }
+        }
+    }
+
     override suspend fun applySoftAmnesty(): Int = 0
 }
 
@@ -114,22 +120,22 @@ class Stage3UnitTest {
 
     @Test
     fun testGetFocusTasksByEnergy() = runBlocking {
-        val easyTasks = getFocusTaskUseCase(EnergyLevel.EASY).first()
-        assertTrue(easyTasks.isNotEmpty())
-        assertEquals(EnergyLevel.EASY, easyTasks.first().energyLevel)
+        val mechTasks = getFocusTaskUseCase(EnergyLevel.MECHANICAL).first()
+        assertTrue(mechTasks.isNotEmpty())
+        assertEquals(EnergyLevel.MECHANICAL, mechTasks.first().energyLevel)
 
-        val quickTasks = getFocusTaskUseCase(EnergyLevel.FIVE_MIN).first()
-        assertTrue(quickTasks.isNotEmpty())
-        assertEquals(EnergyLevel.FIVE_MIN, quickTasks.first().energyLevel)
+        val stepTasks = getFocusTaskUseCase(EnergyLevel.SINGLE_STEP).first()
+        assertTrue(stepTasks.isNotEmpty())
+        assertEquals(EnergyLevel.SINGLE_STEP, stepTasks.first().energyLevel)
 
-        val focusTasks = getFocusTaskUseCase(EnergyLevel.FOCUS).first()
-        assertTrue(focusTasks.isNotEmpty())
-        assertEquals(EnergyLevel.FOCUS, focusTasks.first().energyLevel)
+        val flowTasks = getFocusTaskUseCase(EnergyLevel.FLOW).first()
+        assertTrue(flowTasks.isNotEmpty())
+        assertEquals(EnergyLevel.FLOW, flowTasks.first().energyLevel)
     }
 
     @Test
     fun testSimplifyTaskCycling() = runBlocking {
-        val task = fakeRepository.getTaskById("task-easy-batteries-buy")
+        val task = fakeRepository.getTaskById("task-mech-batteries-buy")
         assertNotNull(task)
         assertEquals(0, task!!.currentSimplifyIndex)
         assertEquals(2, task.simplifiedSteps.size)
@@ -137,49 +143,49 @@ class Stage3UnitTest {
         // 0 -> 1
         var nextIdx = simplifyTaskUseCase(task)
         assertEquals(1, nextIdx)
-        var updated = fakeRepository.getTaskById("task-easy-batteries-buy")!!
+        var updated = fakeRepository.getTaskById("task-mech-batteries-buy")!!
         assertEquals(1, updated.currentSimplifyIndex)
-        assertEquals("Открыть приложение маркетплейса и вбить в поиск «Аккумуляторы АА»", updated.currentStepText)
+        assertEquals("Открыть маркетплейс и вбить «Аккумуляторы АА Ni-MH 4 шт»", updated.currentStepText)
 
         // 1 -> 2
         nextIdx = simplifyTaskUseCase(updated)
         assertEquals(2, nextIdx)
-        updated = fakeRepository.getTaskById("task-easy-batteries-buy")!!
+        updated = fakeRepository.getTaskById("task-mech-batteries-buy")!!
         assertEquals(2, updated.currentSimplifyIndex)
-        assertEquals("Кинуть первую подходящую упаковку в корзину", updated.currentStepText)
+        assertEquals("Положить первую подходящую упаковку в корзину", updated.currentStepText)
 
         // 2 -> 0 (цикл возврата)
         nextIdx = simplifyTaskUseCase(updated)
         assertEquals(0, nextIdx)
-        updated = fakeRepository.getTaskById("task-easy-batteries-buy")!!
+        updated = fakeRepository.getTaskById("task-mech-batteries-buy")!!
         assertEquals(0, updated.currentSimplifyIndex)
         assertEquals("Заказать аккумуляторы АА на маркетплейсе", updated.currentStepText)
     }
 
     @Test
     fun testSkipTaskRotatesCard() = runBlocking {
-        val easyTasksBefore = getFocusTaskUseCase(EnergyLevel.EASY).first()
-        val firstTask = easyTasksBefore.first()
+        val mechTasksBefore = getFocusTaskUseCase(EnergyLevel.MECHANICAL).first()
+        val firstTask = mechTasksBefore.first()
 
         skipTaskUseCase(firstTask.id)
 
-        val easyTasksAfter = getFocusTaskUseCase(EnergyLevel.EASY).first()
+        val mechTasksAfter = getFocusTaskUseCase(EnergyLevel.MECHANICAL).first()
         val updatedFirstTask = fakeRepository.getTaskById(firstTask.id)!!
         assertEquals(1, updatedFirstTask.skippedCount)
         assertTrue(updatedFirstTask.lastShownAt > 0)
 
         // Задача переместилась в конец списка того же уровня энергии
-        assertEquals(firstTask.id, easyTasksAfter.last().id)
+        assertEquals(firstTask.id, mechTasksAfter.last().id)
     }
 
     @Test
     fun testCompleteTaskRemovesFromFocus() = runBlocking {
-        val easyTasksBefore = getFocusTaskUseCase(EnergyLevel.EASY).first()
-        val firstTaskId = easyTasksBefore.first().id
+        val mechTasksBefore = getFocusTaskUseCase(EnergyLevel.MECHANICAL).first()
+        val firstTaskId = mechTasksBefore.first().id
 
         completeTaskUseCase(firstTaskId)
 
-        val easyTasksAfter = getFocusTaskUseCase(EnergyLevel.EASY).first()
-        assertTrue(easyTasksAfter.none { it.id == firstTaskId })
+        val mechTasksAfter = getFocusTaskUseCase(EnergyLevel.MECHANICAL).first()
+        assertTrue(mechTasksAfter.none { it.id == firstTaskId })
     }
 }

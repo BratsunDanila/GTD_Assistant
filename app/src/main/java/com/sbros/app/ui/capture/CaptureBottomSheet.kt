@@ -33,16 +33,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.HourglassTop
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MicOff
-import androidx.compose.material.icons.filled.Weekend
+import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.FactCheck
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.HourglassTop
+import androidx.compose.material.icons.rounded.Keyboard
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -224,7 +228,7 @@ fun CaptureBottomSheet(
                                     .wrapContentWidth(unbounded = false)
                             ) {
                                 Icon(
-                                    imageVector = if (mode == CaptureMode.VOICE) Icons.Default.Keyboard else Icons.Default.Mic,
+                                    imageVector = if (mode == CaptureMode.VOICE) Icons.Rounded.Keyboard else Icons.Rounded.Mic,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -268,7 +272,7 @@ fun CaptureBottomSheet(
                                                 ) {
                                                     Box(contentAlignment = Alignment.Center) {
                                                         Icon(
-                                                            imageVector = Icons.Default.MicOff,
+                                                            imageVector = Icons.Rounded.MicOff,
                                                             contentDescription = null,
                                                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                                             modifier = Modifier.size(26.dp)
@@ -473,13 +477,13 @@ fun CaptureBottomSheet(
                                     .height(48.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.AutoAwesome,
+                                    imageVector = Icons.Rounded.AutoAwesome,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isLoadingReview) "Разбираю..." else "Посмотреть разбор →",
+                                    text = if (isLoadingReview) "Разбираю..." else "Посмотреть разбор",
                                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                                 )
                             }
@@ -568,20 +572,24 @@ fun CaptureBottomSheet(
                                             val shelfLabel: String
                                             when (item.shelf) {
                                                 ShelfType.SIMPLE_STEPS -> {
-                                                    shelfIcon = Icons.Default.Check
+                                                    shelfIcon = Icons.Rounded.Checklist
                                                     shelfLabel = "Простые шаги"
                                                 }
                                                 ShelfType.BIG_THINGS -> {
-                                                    shelfIcon = Icons.Default.Layers
-                                                    shelfLabel = if (item.categoryBadge.contains("Курсов")) "Большие дела • Курсовая" else "Большие дела"
+                                                    shelfIcon = Icons.Rounded.AccountTree
+                                                    shelfLabel = "Большие дела"
                                                 }
                                                 ShelfType.WAITING -> {
-                                                    shelfIcon = Icons.Default.HourglassTop
-                                                    shelfLabel = "Жду от других"
+                                                    shelfIcon = Icons.Rounded.HourglassTop
+                                                    shelfLabel = "Жду ответа"
                                                 }
                                                 ShelfType.SOMEDAY -> {
-                                                    shelfIcon = Icons.Default.Weekend
+                                                    shelfIcon = Icons.Rounded.Bookmark
                                                     shelfLabel = "На потом"
+                                                }
+                                                ShelfType.REFERENCE -> {
+                                                    shelfIcon = Icons.Rounded.Description
+                                                    shelfLabel = "Справочник"
                                                 }
                                             }
 
@@ -595,7 +603,8 @@ fun CaptureBottomSheet(
                                                             ShelfType.SIMPLE_STEPS,
                                                             ShelfType.BIG_THINGS,
                                                             ShelfType.WAITING,
-                                                            ShelfType.SOMEDAY
+                                                            ShelfType.SOMEDAY,
+                                                            ShelfType.REFERENCE
                                                         )
                                                         val nextShelf = shelves[(shelves.indexOf(item.shelf) + 1) % shelves.size]
                                                         parsedItems = parsedItems.toMutableList().also {
@@ -609,10 +618,10 @@ fun CaptureBottomSheet(
                                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
                                                     Icon(
-                                                        imageVector = shelfIcon,
+                                                        imageVector = Icons.Rounded.Folder,
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                        modifier = Modifier.size(14.dp)
+                                                        modifier = Modifier.size(13.dp)
                                                     )
                                                     Text(
                                                         text = shelfLabel,
@@ -621,12 +630,6 @@ fun CaptureBottomSheet(
                                                             fontSize = 11.5.sp
                                                         ),
                                                         color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                    )
-                                                    Icon(
-                                                        imageVector = Icons.Default.ExpandMore,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                        modifier = Modifier.size(13.dp)
                                                     )
                                                 }
                                             }
@@ -637,9 +640,9 @@ fun CaptureBottomSheet(
                                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
                                                 val energyLabel = when (item.energyLevel) {
-                                                    EnergyLevel.EASY -> "🌿 Легкое"
-                                                    EnergyLevel.FIVE_MIN -> "⚡ На 5 мин"
-                                                    EnergyLevel.FOCUS -> "🧠 Фокус"
+                                                    EnergyLevel.MECHANICAL -> "Механика"
+                                                    EnergyLevel.SINGLE_STEP -> "Один шаг"
+                                                    EnergyLevel.FLOW -> "Поток"
                                                 }
 
                                                 Surface(
@@ -649,9 +652,9 @@ fun CaptureBottomSheet(
                                                         .clip(CircleShape)
                                                         .clickable {
                                                             val energies = listOf(
-                                                                EnergyLevel.EASY,
-                                                                EnergyLevel.FIVE_MIN,
-                                                                EnergyLevel.FOCUS
+                                                                EnergyLevel.MECHANICAL,
+                                                                EnergyLevel.SINGLE_STEP,
+                                                                EnergyLevel.FLOW
                                                             )
                                                             val nextEnergy = energies[(energies.indexOf(item.energyLevel) + 1) % energies.size]
                                                             parsedItems = parsedItems.toMutableList().also {
@@ -677,7 +680,7 @@ fun CaptureBottomSheet(
                                                     modifier = Modifier.size(28.dp)
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.Default.Close,
+                                                        imageVector = Icons.Rounded.Close,
                                                         contentDescription = "Удалить",
                                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         modifier = Modifier.size(16.dp)
@@ -734,7 +737,7 @@ fun CaptureBottomSheet(
                                             )
                                         } else {
                                             Text(
-                                                text = "✎ Нажми на текст, чтобы изменить формулировку",
+                                                text = "Нажми на текст, чтобы изменить формулировку",
                                                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                 modifier = Modifier.padding(start = 2.dp)
@@ -745,12 +748,12 @@ fun CaptureBottomSheet(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        // Нижний ряд: «+ Шаг» и «Сохранить по полкам»
+                        // Нижний ряд: «+ Шаг» и «Подтвердить и сохранить в систему»
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             FilledTonalButton(
@@ -758,18 +761,21 @@ fun CaptureBottomSheet(
                                     parsedItems = parsedItems + EditableParsedItem(
                                         title = "",
                                         shelf = ShelfType.SIMPLE_STEPS,
-                                        energyLevel = EnergyLevel.EASY,
+                                        energyLevel = EnergyLevel.MECHANICAL,
                                         aiHint = "Добавлено вручную"
                                     )
                                 },
-                                shape = CircleShape,
+                                shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(48.dp)
+                                    .height(52.dp)
                             ) {
                                 Text(
                                     text = "+ Шаг",
-                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.5.sp
+                                    )
                                 )
                             }
 
@@ -778,24 +784,28 @@ fun CaptureBottomSheet(
                                     onSaveParsedTasks(parsedItems)
                                     onDismissRequest()
                                 },
-                                shape = CircleShape,
+                                shape = RoundedCornerShape(16.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary,
                                     contentColor = MaterialTheme.colorScheme.onPrimary
                                 ),
                                 modifier = Modifier
-                                    .weight(2f)
-                                    .height(48.dp)
+                                    .weight(2.2f)
+                                    .height(52.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Check,
+                                    imageVector = Icons.Rounded.Check,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Сохранить по полкам",
-                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                                    text = "Подтвердить и сохранить",
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.5.sp
+                                    ),
+                                    maxLines = 1
                                 )
                             }
                         }

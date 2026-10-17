@@ -38,15 +38,20 @@ class Converters {
     }
 
     @TypeConverter
-    fun fromEnergyLevel(value: EnergyLevel?): String = (value ?: EnergyLevel.EASY).name
+    fun fromEnergyLevel(value: EnergyLevel?): String = (value ?: EnergyLevel.MECHANICAL).name
 
     @TypeConverter
     fun toEnergyLevel(value: String?): EnergyLevel {
-        if (value.isNullOrBlank()) return EnergyLevel.EASY
-        return try {
-            EnergyLevel.valueOf(value)
-        } catch (e: Exception) {
-            EnergyLevel.EASY
+        if (value.isNullOrBlank()) return EnergyLevel.MECHANICAL
+        return when (value.uppercase()) {
+            "EASY", "MECHANICAL" -> EnergyLevel.MECHANICAL
+            "FIVE_MIN", "SINGLE_STEP" -> EnergyLevel.SINGLE_STEP
+            "FOCUS", "FLOW" -> EnergyLevel.FLOW
+            else -> try {
+                EnergyLevel.valueOf(value)
+            } catch (e: Exception) {
+                EnergyLevel.MECHANICAL
+            }
         }
     }
 }

@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -32,12 +31,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.rounded.AutoFixHigh
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.East
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Spa
+import androidx.compose.material.icons.rounded.West
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -57,7 +59,9 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sbros.app.domain.model.TaskItem
@@ -65,12 +69,15 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
- * Карточка задачи v4.0 (по спецификации sbros_v4.html):
- * - 3D стопка карточек (stack-bg-3 со scale 0.88f и offset y=26.dp, stack-bg-2 со scale 0.94f и offset y=13.dp)
- * - Динамическая интерполяция подъема stack-bg-2 при перетаскивании верхней карточки
- * - Свайп ВПРАВО (> 250f): задача выполнена (onComplete()), проявляется бейдж «✓ СДЕЛАНО»
- * - Свайп ВЛЕВО (< -250f): отложить задачу (onSkip()), проявляется бейдж «↷ ПОТОМ»
- * - Тактильные пружинящие анимации (Spring physics)
+ * Карточка задачи v5.0 (по спецификации sbros_production_m3.html):
+ * - 3D стопка карточек (card-bg-3 со scale 0.89f и offset y=20.dp, card-bg-2 со scale 0.945f и offset y=10.dp)
+ * - Динамическая интерполяция подъема card-bg-2 при свайпе верхней карточки
+ * - Свайп ВПРАВО (> 220f): задача выполнена (onComplete()), проявляется зеленый штамп «ГОТОВО» с CheckCircle
+ * - Свайп ВЛЕВО (< -220f): отложить задачу (onSkip()), проявляется нейтральный штамп «ПОТОМ» с Schedule
+ * - Header: бейдж папки/проекта + время (моноширинный)
+ * - Quote: «Из речи: ...» с иконкой микрофона
+ * - Footer: подсказки свайпа «← Потом» / «Готово →» + кнопка «1/3» с AutoFixHigh
+ * - Строго НОЛЬ ЭМОДЗИ во всем компоненте!
  */
 @Composable
 fun FocusTaskCard(
@@ -92,24 +99,24 @@ fun FocusTaskCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 28.dp),
+            .padding(bottom = 20.dp),
         contentAlignment = Alignment.Center
     ) {
         // Прогресс перетаскивания от 0f до 1f
-        val dragProgress = (abs(offsetX.value) / 120f).coerceIn(0f, 1f)
+        val dragProgress = (abs(offsetX.value) / 110f).coerceIn(0f, 1f)
 
-        // 1. Подложка 3-й карточки в стопке (stack-bg-3)
+        // 1. Подложка 3-й карточки в стопке (card-bg-3)
         if (task != null && !showCompletionFeedback && remainingInStack >= 3) {
             Surface(
                 modifier = Modifier
                     .matchParentSize()
                     .graphicsLayer {
-                        scaleX = 0.88f
-                        scaleY = 0.88f
-                        translationY = 26.dp.toPx()
-                        alpha = 0.45f
+                        scaleX = 0.89f
+                        scaleY = 0.89f
+                        translationY = 20.dp.toPx()
+                        alpha = 0.42f
                     },
-                shape = RoundedCornerShape(26.dp),
+                shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLowest,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                 tonalElevation = 1.dp,
@@ -117,19 +124,19 @@ fun FocusTaskCard(
             ) {}
         }
 
-        // 2. Подложка 2-й карточки в стопке (stack-bg-2) — физически поднимается на место первой при свайпе
+        // 2. Подложка 2-й карточки в стопке (card-bg-2) — физически поднимается на место первой при свайпе
         if (task != null && !showCompletionFeedback && remainingInStack >= 2) {
             Surface(
                 modifier = Modifier
                     .matchParentSize()
                     .graphicsLayer {
-                        val scale = 0.94f + 0.06f * dragProgress
+                        val scale = 0.945f + 0.055f * dragProgress
                         scaleX = scale
                         scaleY = scale
-                        translationY = (13f - 13f * dragProgress).dp.toPx()
+                        translationY = (10f - 10f * dragProgress).dp.toPx()
                         alpha = 0.75f
                     },
-                shape = RoundedCornerShape(26.dp),
+                shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLowest,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                 tonalElevation = 1.5.dp,
@@ -138,9 +145,9 @@ fun FocusTaskCard(
         }
 
         // 3. Активная верхняя карточка с жестами свайпа
-        val tiltAngle = (offsetX.value * 0.04f).coerceIn(-18f, 18f)
-        val doneStampOpacity = (offsetX.value / 120f).coerceIn(0f, 1f)
-        val laterStampOpacity = (-offsetX.value / 120f).coerceIn(0f, 1f)
+        val tiltAngle = (offsetX.value * 0.045f).coerceIn(-16f, 16f)
+        val doneStampOpacity = ((offsetX.value - 25f) / 85f).coerceIn(0f, 1f)
+        val laterStampOpacity = ((-offsetX.value - 25f) / 85f).coerceIn(0f, 1f)
 
         Surface(
             modifier = Modifier
@@ -156,12 +163,12 @@ fun FocusTaskCard(
                         onDragEnd = {
                             coroutineScope.launch {
                                 when {
-                                    offsetX.value > 250f -> {
+                                    offsetX.value > 200f -> {
                                         offsetX.animateTo(800f, tween(200))
                                         onComplete()
                                         offsetX.snapTo(0f)
                                     }
-                                    offsetX.value < -250f -> {
+                                    offsetX.value < -200f -> {
                                         offsetX.animateTo(-800f, tween(200))
                                         onSkip()
                                         offsetX.snapTo(0f)
@@ -189,7 +196,6 @@ fun FocusTaskCard(
                                 )
                             }
                         },
-
                         onHorizontalDrag = { change, dragAmount ->
                             change.consume()
                             coroutineScope.launch {
@@ -198,7 +204,7 @@ fun FocusTaskCard(
                         }
                     )
                 },
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surfaceContainerLowest,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
             tonalElevation = 2.dp,
@@ -207,7 +213,7 @@ fun FocusTaskCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(18.dp)
             ) {
                 when {
                     showCompletionFeedback -> {
@@ -227,7 +233,7 @@ fun FocusTaskCard(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Check,
+                                    imageVector = Icons.Rounded.Check,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(32.dp)
@@ -252,57 +258,57 @@ fun FocusTaskCard(
                         Column(
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            // Верхняя строка карточки: категория + время
+                            // Верхняя строка: папка/проект + время
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                if (task.categoryBadge.isNotBlank()) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+                                Surface(
+                                    shape = RoundedCornerShape(99.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
                                     ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Folder,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(13.dp)
+                                        )
                                         Text(
-                                            text = task.categoryBadge,
+                                            text = if (task.categoryBadge.isNotBlank()) task.categoryBadge else "Дело",
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp)
+                                            maxLines = 1
                                         )
                                     }
-                                } else {
-                                    Spacer(modifier = Modifier.width(1.dp))
                                 }
 
                                 if (task.estimatedMinutes > 0) {
                                     Surface(
-                                        shape = CircleShape,
+                                        shape = RoundedCornerShape(99.dp),
                                         color = MaterialTheme.colorScheme.surfaceContainer
                                     ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Schedule,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                text = "${task.estimatedMinutes} мин",
-                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
+                                        Text(
+                                            text = "${task.estimatedMinutes} мин",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontFamily = FontFamily.Monospace,
+                                                fontWeight = FontWeight.SemiBold
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                                        )
                                     }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(18.dp))
+                            Spacer(modifier = Modifier.height(14.dp))
 
-                            // Центральный блок: крупный текст шага (анимируется при упрощении с пружинящей физикой)
+                            // Заголовок шага
                             AnimatedContent(
                                 targetState = task.currentStepText,
                                 transitionSpec = {
@@ -323,54 +329,62 @@ fun FocusTaskCard(
                             ) { currentText ->
                                 Text(
                                     text = currentText,
-                                    style = MaterialTheme.typography.titleLarge.copy(
+                                    style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 20.sp,
-                                        lineHeight = 27.sp
+                                        fontSize = 18.sp,
+                                        lineHeight = 24.sp
                                     ),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
 
-                            if (task.aiHint.isNotBlank()) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = task.aiHint,
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontSize = 13.sp,
-                                        lineHeight = 18.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            // Цитата из речи
+                            if (task.originalQuote.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Mic,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Text(
+                                        text = "Из речи: «${task.originalQuote}»",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontSize = 11.5.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
                             HorizontalDivider(
                                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                                 thickness = 1.dp
                             )
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                            // Нижний ряд: подсказки свайпа («← Потом • Готово →») + аккуратная кнопка «Проще»
+                            // Нижний ряд: жесты «← Потом» / «Готово →» + кнопка «1/3»
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                // Подсказки свайпа (можно смахнуть или нажать)
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text(
-                                        text = "← Потом",
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        ),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
                                             .clickable {
@@ -380,22 +394,27 @@ fun FocusTaskCard(
                                                     offsetX.snapTo(0f)
                                                 }
                                             }
-                                            .padding(horizontal = 4.dp, vertical = 6.dp)
-                                    )
+                                            .padding(horizontal = 4.dp, vertical = 4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.West,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Text(
+                                            text = "Потом",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
 
-                                    Text(
-                                        text = "•",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.outline
-                                    )
-
-                                    Text(
-                                        text = "Готово →",
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold
-                                        ),
-                                        color = MaterialTheme.colorScheme.primary,
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
                                             .clickable {
@@ -405,12 +424,27 @@ fun FocusTaskCard(
                                                     offsetX.snapTo(0f)
                                                 }
                                             }
-                                            .padding(horizontal = 4.dp, vertical = 6.dp)
-                                    )
+                                            .padding(horizontal = 4.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "Готово",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            color = Color(0xFF1E6B43)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Rounded.East,
+                                            contentDescription = null,
+                                            tint = Color(0xFF1E6B43),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
                                 }
 
-                                // Аккуратная пилюля «Сделать проще» с тактильной пружиной и счетчиком 1/3
-                                val simplifyTotal = task.simplifiedSteps.size + 1
+                                // Кнопка «Сделать проще» с AutoFixHigh и счетчиком 1/3
+                                val simplifyTotal = (task.simplifiedSteps.size + 1).coerceAtLeast(1)
                                 val currentStepNumber = (task.currentSimplifyIndex + 1).coerceAtMost(simplifyTotal)
 
                                 val simplifyInteractionSource = remember { MutableInteractionSource() }
@@ -427,96 +461,97 @@ fun FocusTaskCard(
                                 FilledTonalButton(
                                     onClick = onSimplify,
                                     interactionSource = simplifyInteractionSource,
-                                    shape = CircleShape,
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    shape = RoundedCornerShape(99.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                     colors = ButtonDefaults.filledTonalButtonColors(
                                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                     ),
                                     modifier = Modifier
-                                        .height(36.dp)
+                                        .height(32.dp)
                                         .scale(simplifyScale)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.AutoAwesome,
+                                        imageVector = Icons.Rounded.AutoFixHigh,
                                         contentDescription = "Упростить",
-                                        modifier = Modifier.size(15.dp)
+                                        modifier = Modifier.size(14.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "$currentStepNumber/$simplifyTotal",
-                                        style = MaterialTheme.typography.labelMedium.copy(
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontFamily = FontFamily.Monospace,
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp
+                                            fontSize = 11.5.sp
                                         )
                                     )
                                 }
                             }
                         }
 
-                        // Штамп «✓ СДЕЛАНО» при свайпе ВПРАВО
+                        // Зеленый штамп ГОТОВО при свайпе вправо
                         if (doneStampOpacity > 0f) {
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFFC3F2D6),
+                                border = BorderStroke(1.dp, Color(0xFF1E6B43).copy(alpha = 0.3f)),
                                 modifier = Modifier
                                     .align(Alignment.TopStart)
                                     .graphicsLayer {
-                                        rotationZ = -8f
+                                        rotationZ = -6f
                                         alpha = doneStampOpacity
                                     }
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.CheckCircle,
+                                        imageVector = Icons.Rounded.CheckCircle,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(16.dp)
+                                        tint = Color(0xFF1E6B43),
+                                        modifier = Modifier.size(14.dp)
                                     )
                                     Text(
-                                        text = "СДЕЛАНО",
-                                        style = MaterialTheme.typography.labelMedium.copy(
+                                        text = "ГОТОВО",
+                                        style = MaterialTheme.typography.labelSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             letterSpacing = 0.5.sp
                                         ),
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = Color(0xFF1E6B43)
                                     )
                                 }
                             }
                         }
 
-                        // Штамп «↷ ПОТОМ» при свайпе ВЛЕВО
+                        // Нейтральный штамп ПОТОМ при свайпе влево
                         if (laterStampOpacity > 0f) {
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(10.dp),
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
                                     .graphicsLayer {
-                                        rotationZ = 8f
+                                        rotationZ = 6f
                                         alpha = laterStampOpacity
                                     }
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.History,
+                                        imageVector = Icons.Rounded.Schedule,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(14.dp)
                                     )
                                     Text(
                                         text = "ПОТОМ",
-                                        style = MaterialTheme.typography.labelMedium.copy(
+                                        style = MaterialTheme.typography.labelSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             letterSpacing = 0.5.sp
                                         ),
@@ -528,7 +563,7 @@ fun FocusTaskCard(
                     }
 
                     else -> {
-                        // Спокойный Empty State
+                        // Empty State
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -544,7 +579,7 @@ fun FocusTaskCard(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Spa,
+                                    imageVector = Icons.Rounded.Spa,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(28.dp)
@@ -558,7 +593,7 @@ fun FocusTaskCard(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Можно просто отдохнуть или сбросить новые мысли внизу.",
+                                text = "Можешь просто отдохнуть или сбросить новые мысли внизу.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

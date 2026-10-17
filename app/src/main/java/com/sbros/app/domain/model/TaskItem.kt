@@ -14,7 +14,7 @@ data class TaskItem(
     val categoryBadge: String = "",
     val estimatedMinutes: Int = 5,
     val shelf: ShelfType = ShelfType.SIMPLE_STEPS,
-    val energyLevel: EnergyLevel = EnergyLevel.EASY,
+    val energyLevel: EnergyLevel = EnergyLevel.MECHANICAL,
     val isCompleted: Boolean = false,
     val skippedCount: Int = 0,
     val lastShownAt: Long = 0L,
@@ -22,7 +22,8 @@ data class TaskItem(
     val aiDraftType: String = "",
     val aiDraftContent: String = "",
     val scheduledDateMillis: Long? = null,
-    val scheduledTimeText: String? = null
+    val scheduledTimeText: String? = null,
+    val contextTag: String = "home"
 ) {
     /**
      * Возвращает текущий текст шага с учетом нажатий кнопки «Проще».
@@ -58,7 +59,8 @@ fun TaskEntity.toDomain(): TaskItem = TaskItem(
     aiDraftType = aiDraftType,
     aiDraftContent = aiDraftContent,
     scheduledDateMillis = scheduledDateMillis,
-    scheduledTimeText = scheduledTimeText
+    scheduledTimeText = scheduledTimeText,
+    contextTag = contextTag
 )
 
 fun TaskItem.toEntity(): TaskEntity = TaskEntity(
@@ -81,5 +83,6 @@ fun TaskItem.toEntity(): TaskEntity = TaskEntity(
     aiDraftType = aiDraftType,
     aiDraftContent = aiDraftContent,
     scheduledDateMillis = scheduledDateMillis,
-    scheduledTimeText = scheduledTimeText
+    scheduledTimeText = scheduledTimeText,
+    contextTag = contextTag
 )

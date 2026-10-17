@@ -62,7 +62,8 @@ class AiParserApiImpl @Inject constructor() : AiParserApi {
     private fun isPureEmotion(lower: String): Boolean {
         val emotionWords = listOf(
             "как же я устал", "я устал", "ничего не успеваю", "блин", "капец",
-            "жесть", "сил нет", "не могу больше", "кошмар", "ужас", "бесит"
+            "жесть", "сил нет", "не могу больше", "кошмар", "ужас", "бесит",
+            "голова кругом", "каша в голове"
         )
         return emotionWords.any { lower == it || lower.startsWith("$it ") || lower.endsWith(" $it") }
     }
@@ -88,44 +89,46 @@ class AiParserApiImpl @Inject constructor() : AiParserApi {
             lower.contains("отдых") || lower.contains("на потом")
         ) {
             return ParsedItemDto(
-                originalQuote = original,
+                originalQuote = "Из речи: «$original»",
                 title = cleanPhrase,
                 simplifiedSteps = listOf(
                     "Добавить в закладки или заметки",
                     "Найти трейлер или описание на 1 минуту"
                 ),
                 aiHint = "Приятный план на отдых без дедлайнов и обязательств.",
-                categoryBadge = if (timeText != null || dateMillis != null) "🍿 Календарь • Отдых" else "Идея • Отдых",
+                categoryBadge = if (timeText != null || dateMillis != null) "Календарь • Отдых" else "Идея • Отдых",
                 estimatedMinutes = 0,
                 shelf = "SOMEDAY",
-                energyLevel = "EASY",
+                energyLevel = "MECHANICAL",
                 aiDraftType = "Совет ИИ",
                 aiDraftContent = "Хороший отдых восстанавливает силы. Выбери подходящее время и не думай о делах.",
                 scheduledDateMillis = dateMillis,
-                scheduledTimeText = timeText
+                scheduledTimeText = timeText,
+                contextTag = "home"
             )
         }
 
-        // 2. Полка: Жду от других (WAITING)
+        // 2. Полка: Жду ответа (WAITING)
         if (lower.contains("жд") || lower.contains("научрук") || lower.contains("доставк") ||
             lower.contains("ответ") || lower.contains("проверк") || lower.contains("правк")
         ) {
             return ParsedItemDto(
-                originalQuote = original,
+                originalQuote = "Из речи: «$original»",
                 title = cleanPhrase,
                 simplifiedSteps = listOf(
                     "Проверить статус или почту",
                     "Напомнить вежливым сообщением, если не ответят"
                 ),
                 aiHint = "Дело на паузе, от тебя сейчас действий не требуется.",
-                categoryBadge = if (timeText != null || dateMillis != null) "📅 Календарь • Ожидание" else "Ожидание • Контроль",
+                categoryBadge = if (timeText != null || dateMillis != null) "Календарь • Ожидание" else "Ожидание • Контроль",
                 estimatedMinutes = 0,
                 shelf = "WAITING",
-                energyLevel = "EASY",
+                energyLevel = "MECHANICAL",
                 aiDraftType = "Черновик напоминания",
                 aiDraftContent = "«Здравствуйте! Подскажите, пожалуйста, удалось ли посмотреть материалы по $cleanPhrase?»",
                 scheduledDateMillis = dateMillis,
-                scheduledTimeText = timeText
+                scheduledTimeText = timeText,
+                contextTag = "phone"
             )
         }
 
@@ -148,70 +151,73 @@ class AiParserApiImpl @Inject constructor() : AiParserApi {
             }
 
             return ParsedItemDto(
-                originalQuote = original,
+                originalQuote = "Из речи: «$original»",
                 title = "Сделать первый шаг по теме: $cleanPhrase",
                 simplifiedSteps = listOf(
                     "Открыть документ и набросать 3 коротких тезиса",
                     "Просто создать пустой файл и написать заголовок"
                 ),
                 aiHint = "ИИ спрятал остальной проект, оставив только первый шаг на 15-20 минут.",
-                categoryBadge = if (timeText != null || dateMillis != null) "📅 Дедлайн • $projTitle" else "Большое дело: $projTitle",
+                categoryBadge = if (timeText != null || dateMillis != null) "Дедлайн • $projTitle" else "Большое дело: $projTitle",
                 estimatedMinutes = 20,
                 shelf = "BIG_THINGS",
-                energyLevel = "FOCUS",
+                energyLevel = "FLOW",
                 matchedProjectId = matchedProj?.id,
                 newProjectTitle = if (matchedProj == null) projTitle else null,
                 aiDraftType = "Стартовый план",
                 aiDraftContent = "1. Сформулировать 3 ключевых тезиса.\n2. Набросать черновой каркас введения.\n3. Сверить с методическими указаниями.",
                 scheduledDateMillis = dateMillis,
-                scheduledTimeText = timeText
+                scheduledTimeText = timeText,
+                contextTag = "pc"
             )
         }
 
-        // 4. Полка: Простые шаги -> На 5 минут (FIVE_MIN)
+        // 4. Полка: Простые шаги -> На пару минут / телефон (SINGLE_STEP)
         if (lower.contains("написать") || lower.contains("скинуть") || lower.contains("ответить") ||
             lower.contains("позвонить") || lower.contains("переслать") || lower.contains("сообщ") ||
             lower.contains("старост") || lower.contains("telegram") || lower.contains("чат") ||
             lower.contains("созвон")
         ) {
             return ParsedItemDto(
-                originalQuote = original,
+                originalQuote = "Из речи: «$original»",
                 title = cleanPhrase,
                 simplifiedSteps = listOf(
                     "Открыть нужный диалог в мессенджере",
                     "Отправить короткое сообщение «Привет, скину чуть позже»"
                 ),
                 aiHint = "Быстрое дело на 1-3 минуты — сразу освободит оперативку головы.",
-                categoryBadge = if (timeText != null || dateMillis != null) "📅 Календарь: ${timeText ?: "созвон"}" else "На пару минут • Мессенджер",
+                categoryBadge = if (timeText != null || dateMillis != null) "Календарь: ${timeText ?: "созвон"}" else "На пару минут • Мессенджер",
                 estimatedMinutes = 2,
                 shelf = "SIMPLE_STEPS",
-                energyLevel = "FIVE_MIN",
+                energyLevel = "SINGLE_STEP",
                 aiDraftType = "Черновик сообщения",
                 aiDraftContent = "«Привет! Пишу по поводу $cleanPhrase. Всё в процессе, скоро пришлю детали.»",
                 scheduledDateMillis = dateMillis,
-                scheduledTimeText = timeText
+                scheduledTimeText = timeText,
+                contextTag = "phone"
             )
         }
 
-        // 5. Полка: Простые шаги -> Легкое (EASY / Бытовое)
+        // 5. Полка: Простые шаги -> Механика (MECHANICAL / Бытовое / Покупки)
         val isBuy = lower.contains("купить") || lower.contains("заказать") || lower.contains("батарейк") || lower.contains("маркетплейс")
         return ParsedItemDto(
-            originalQuote = original,
+            originalQuote = "Из речи: «$original»",
             title = cleanPhrase,
             simplifiedSteps = listOf(
                 "Открыть поиск или приложение для $cleanPhrase",
                 "Сделать одно простое действие на 30 секунд"
             ),
             aiHint = "Простое бытовое дело, не требующее умственного напряжения.",
-            categoryBadge = if (timeText != null || dateMillis != null) "📦 Календарь • Доставка" else "Бытовое • Не требует фокуса",
-            estimatedMinutes = 5,
+            categoryBadge = if (timeText != null || dateMillis != null) "Календарь • Доставка" else "Бытовое • Не требует фокуса",
+            estimatedMinutes = if (isBuy) 3 else 2,
             shelf = "SIMPLE_STEPS",
-            energyLevel = "EASY",
-            aiDraftType = if (isBuy) "Поисковый фильтр ИИ" else "Совет ИИ",
+            energyLevel = "MECHANICAL",
+            aiDraftType = if (isBuy) "Рекомендация ИИ" else "Совет ИИ",
             aiDraftContent = if (isBuy) "Рекомендация: выбери проверенного продавца с рейтингом от 4.8 и быстрой доставкой."
             else "Начни с одного физического движения, чтобы запустить действие без сопротивления.",
             scheduledDateMillis = dateMillis,
-            scheduledTimeText = timeText
+            scheduledTimeText = timeText,
+            contextTag = if (isBuy) "out" else "home"
         )
     }
 
@@ -263,4 +269,3 @@ class AiParserApiImpl @Inject constructor() : AiParserApi {
         return cal.timeInMillis
     }
 }
-

@@ -55,26 +55,26 @@ class Stage1And2UnitTest {
         assertEquals(ShelfType.SIMPLE_STEPS, converters.toShelfType("INVALID_SHELF"))
 
         // EnergyLevel
-        assertEquals(EnergyLevel.FOCUS, converters.toEnergyLevel("FOCUS"))
-        assertEquals(EnergyLevel.EASY, converters.toEnergyLevel("UNKNOWN_LEVEL"))
+        assertEquals(EnergyLevel.FLOW, converters.toEnergyLevel("FOCUS"))
+        assertEquals(EnergyLevel.MECHANICAL, converters.toEnergyLevel("UNKNOWN_LEVEL"))
     }
 
     @Test
     fun testTaskItemSimplificationText() {
-        val task = SeedData.initialTasks.first { it.id == "task-easy-batteries-buy" }.toDomain()
+        val task = SeedData.initialTasks.first { it.id.contains("batteries-buy") }.toDomain()
 
         // Index 0: исходный заголовок
         assertEquals("Заказать аккумуляторы АА на маркетплейсе", task.copy(currentSimplifyIndex = 0).currentStepText)
 
-        // Index 1: первый уровень упрощения (2 минуты)
+        // Index 1: первый уровень упрощения
         assertEquals(
-            "Открыть приложение маркетплейса и вбить в поиск «Аккумуляторы АА»",
+            "Открыть маркетплейс и вбить «Аккумуляторы АА Ni-MH 4 шт»",
             task.copy(currentSimplifyIndex = 1).currentStepText
         )
 
-        // Index 2: микро-старт (30 секунд)
+        // Index 2: микро-старт
         assertEquals(
-            "Кинуть первую подходящую упаковку в корзину",
+            "Положить первую подходящую упаковку в корзину",
             task.copy(currentSimplifyIndex = 2).currentStepText
         )
 
@@ -100,9 +100,9 @@ class Stage1And2UnitTest {
         }
 
         // Проверяем наличие задач под все 3 уровня энергии
-        assertTrue(tasks.any { it.energyLevel == EnergyLevel.EASY && !it.isCompleted })
-        assertTrue(tasks.any { it.energyLevel == EnergyLevel.FIVE_MIN && !it.isCompleted })
-        assertTrue(tasks.any { it.energyLevel == EnergyLevel.FOCUS && !it.isCompleted })
+        assertTrue(tasks.any { it.energyLevel == EnergyLevel.MECHANICAL && !it.isCompleted })
+        assertTrue(tasks.any { it.energyLevel == EnergyLevel.SINGLE_STEP && !it.isCompleted })
+        assertTrue(tasks.any { it.energyLevel == EnergyLevel.FLOW && !it.isCompleted })
 
         // Проверяем наличие задач под все 4 полки
         assertTrue(tasks.any { it.shelf == ShelfType.SIMPLE_STEPS })

@@ -24,9 +24,9 @@ data class ParsedItemDto(
     @SerialName("estimated_minutes")
     val estimatedMinutes: Int = 5,
     @SerialName("shelf")
-    val shelf: String, // "SIMPLE_STEPS", "BIG_THINGS", "WAITING", "SOMEDAY"
+    val shelf: String, // "SIMPLE_STEPS", "BIG_THINGS", "WAITING", "SOMEDAY", "REFERENCE"
     @SerialName("energy_level")
-    val energyLevel: String, // "EASY", "FIVE_MIN", "FOCUS"
+    val energyLevel: String, // "MECHANICAL", "SINGLE_STEP", "FLOW"
     @SerialName("matched_project_id")
     val matchedProjectId: String? = null,
     @SerialName("new_project_title")
@@ -38,5 +38,7 @@ data class ParsedItemDto(
     @SerialName("scheduled_date_millis")
     val scheduledDateMillis: Long? = null,
     @SerialName("scheduled_time_text")
-    val scheduledTimeText: String? = null
+    val scheduledTimeText: String? = null,
+    @SerialName("context_tag")
+    val contextTag: String = "home"
 )

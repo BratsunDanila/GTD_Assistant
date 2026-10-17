@@ -4,12 +4,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Style
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.Style
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,9 +34,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.sbros.app.ui.calendar.CalendarScreen
 import com.sbros.app.ui.capture.CaptureBottomSheet
 import com.sbros.app.ui.capture.CaptureMode
+import com.sbros.app.ui.capture.CaptureStep
 import com.sbros.app.ui.now.NowScreen
 import com.sbros.app.ui.now.NowViewModel
 import com.sbros.app.ui.shelves.ShelvesScreen
+import com.sbros.app.ui.welcome.OnboardingScreen
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,17 +49,28 @@ fun SbrosAppShell(
     var selectedTab by remember { mutableIntStateOf(0) }
     var showCaptureSheet by remember { mutableStateOf(false) }
     var captureMode by remember { mutableStateOf(CaptureMode.VOICE) }
-    var captureStep by remember { mutableStateOf(com.sbros.app.ui.capture.CaptureStep.RECORDING) }
+    var captureStep by remember { mutableStateOf(CaptureStep.RECORDING) }
+    var showOnboardingDialog by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val nowViewModel: NowViewModel = hiltViewModel()
 
     val hasCompletedOnboarding by nowViewModel.hasCompletedOnboarding.collectAsState()
+    val userName by nowViewModel.userName.collectAsState()
+    val currentPalette by nowViewModel.themePalette.collectAsState()
 
-    if (hasCompletedOnboarding == false) {
-        com.sbros.app.ui.welcome.WelcomeScreen(
-            onStartClick = { nowViewModel.completeOnboarding() }
+    // Полноэкранный онбординг перекрывает 100% экрана, включая Scaffold и NavigationBar
+    if (!hasCompletedOnboarding || showOnboardingDialog) {
+        OnboardingScreen(
+            currentName = userName,
+            currentPalette = currentPalette,
+            onNameChange = { nowViewModel.setUserName(it) },
+            onPaletteSelect = { nowViewModel.setThemePalette(it) },
+            onComplete = {
+                nowViewModel.completeOnboarding()
+                showOnboardingDialog = false
+            }
         )
         return
     }
@@ -78,7 +88,7 @@ fun SbrosAppShell(
                 nowViewModel.saveParsedTasks(items)
                 scope.launch {
                     val result = snackbarHostState.showSnackbar(
-                        message = "Мысли тихо разложены по полкам",
+                        message = "Мысли разложены по полкам",
                         actionLabel = "Полки",
                         duration = SnackbarDuration.Short
                     )
@@ -104,14 +114,14 @@ fun SbrosAppShell(
                     onClick = { selectedTab = 0 },
                     icon = {
                         Icon(
-                            imageVector = if (selectedTab == 0) Icons.Filled.Style else Icons.Outlined.Style,
+                            imageVector = Icons.Rounded.Style,
                             contentDescription = "Сейчас"
                         )
                     },
                     label = {
                         Text(
                             text = "Сейчас",
-                            fontWeight = if (selectedTab == 0) FontWeight.SemiBold else FontWeight.Normal
+                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium
                         )
                     },
                     colors = NavigationBarItemDefaults.colors(
@@ -129,14 +139,14 @@ fun SbrosAppShell(
                     onClick = { selectedTab = 1 },
                     icon = {
                         Icon(
-                            imageVector = if (selectedTab == 1) Icons.Filled.CalendarMonth else Icons.Outlined.CalendarMonth,
+                            imageVector = Icons.Rounded.CalendarMonth,
                             contentDescription = "Календарь"
                         )
                     },
                     label = {
                         Text(
                             text = "Календарь",
-                            fontWeight = if (selectedTab == 1) FontWeight.SemiBold else FontWeight.Normal
+                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium
                         )
                     },
                     colors = NavigationBarItemDefaults.colors(
@@ -154,14 +164,14 @@ fun SbrosAppShell(
                     onClick = { selectedTab = 2 },
                     icon = {
                         Icon(
-                            imageVector = if (selectedTab == 2) Icons.Filled.Inventory2 else Icons.Outlined.Inventory2,
+                            imageVector = Icons.Rounded.Inventory2,
                             contentDescription = "Полки"
                         )
                     },
                     label = {
                         Text(
                             text = "Полки",
-                            fontWeight = if (selectedTab == 2) FontWeight.SemiBold else FontWeight.Normal
+                            fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Medium
                         )
                     },
                     colors = NavigationBarItemDefaults.colors(
@@ -186,11 +196,16 @@ fun SbrosAppShell(
                         viewModel = nowViewModel,
                         onVoiceCaptureClick = {
                             captureMode = CaptureMode.VOICE
+                            captureStep = CaptureStep.RECORDING
                             showCaptureSheet = true
                         },
-                        onTextCaptureClick = {
-                            captureMode = CaptureMode.TEXT
+                        onReviewCaptureClick = {
+                            captureMode = CaptureMode.VOICE
+                            captureStep = CaptureStep.REVIEW
                             showCaptureSheet = true
+                        },
+                        onHelpClick = {
+                            showOnboardingDialog = true
                         }
                     )
                 }

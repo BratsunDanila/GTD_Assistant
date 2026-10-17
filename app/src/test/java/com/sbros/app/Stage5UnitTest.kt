@@ -118,6 +118,12 @@ class FakeFullSbrosRepository : SbrosRepository {
         }
     }
 
+    override fun getQuickWinTask(): Flow<TaskItem?> {
+        return tasks.map { list ->
+            list.firstOrNull { it.estimatedMinutes <= 2 && !it.isCompleted && (it.shelf == ShelfType.SIMPLE_STEPS || it.shelf == ShelfType.BIG_THINGS) }
+        }
+    }
+
     override suspend fun applySoftAmnesty(): Int = 0
 }
 
@@ -151,17 +157,17 @@ class Stage5UnitTest {
 
         assertEquals(3, result.parsedItems.size)
 
-        // 1. Староста в Telegram -> 5 min
+        // 1. Староста в Telegram -> SINGLE_STEP
         val quick = result.parsedItems.firstOrNull { it.title.contains("старосте", ignoreCase = true) }
         assertNotNull(quick)
-        assertEquals("FIVE_MIN", quick?.energyLevel)
+        assertEquals("SINGLE_STEP", quick?.energyLevel)
         assertEquals("SIMPLE_STEPS", quick?.shelf)
         assertEquals(2, quick?.simplifiedSteps?.size)
 
-        // 2. Купить батарейки -> Easy
+        // 2. Купить батарейки -> MECHANICAL
         val easy = result.parsedItems.firstOrNull { it.title.contains("батарейки", ignoreCase = true) }
         assertNotNull(easy)
-        assertEquals("EASY", easy?.energyLevel)
+        assertEquals("MECHANICAL", easy?.energyLevel)
         assertEquals("SIMPLE_STEPS", easy?.shelf)
 
         // 3. Кино -> Someday
@@ -180,7 +186,7 @@ class Stage5UnitTest {
         val bigThing = result.parsedItems.first()
 
         assertEquals("BIG_THINGS", bigThing.shelf)
-        assertEquals("FOCUS", bigThing.energyLevel)
+        assertEquals("FLOW", bigThing.energyLevel)
         assertEquals(20, bigThing.estimatedMinutes)
         assertEquals(2, bigThing.simplifiedSteps.size)
         // Должен привязаться к существующему проекту "Курсовая работа"

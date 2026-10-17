@@ -101,4 +101,17 @@ interface TaskDao {
 
     @Query("SELECT COUNT(*) FROM tasks")
     suspend fun getTaskCount(): Int
+
+    @Query(
+        """
+        SELECT * FROM tasks 
+        WHERE estimatedMinutes <= 2 
+          AND isCompleted = 0 
+          AND shelf IN ('SIMPLE_STEPS', 'BIG_THINGS')
+        ORDER BY estimatedMinutes ASC, lastShownAt ASC
+        LIMIT 1
+        """
+    )
+    fun getQuickWinTask(): Flow<TaskEntity?>
 }
+

@@ -42,15 +42,16 @@ class SaveParsedTasksUseCase @Inject constructor(
             val defaultBadge = when (item.shelf) {
                 ShelfType.SIMPLE_STEPS -> "Простые шаги"
                 ShelfType.BIG_THINGS -> "Большие дела"
-                ShelfType.WAITING -> "Жду от других"
+                ShelfType.WAITING -> "Жду ответа"
                 ShelfType.SOMEDAY -> "На потом"
+                ShelfType.REFERENCE -> "Справочник"
             }
 
             val task = TaskEntity(
                 id = item.id,
                 projectId = finalProjectId,
                 orderInProject = orderInProject,
-                originalQuote = item.title,
+                originalQuote = "Из речи: «${item.title}»",
                 title = item.title.trim(),
                 simplifiedSteps = item.simplifiedSteps,
                 currentSimplifyIndex = 0,
@@ -66,7 +67,8 @@ class SaveParsedTasksUseCase @Inject constructor(
                 aiDraftType = item.aiDraftType,
                 aiDraftContent = item.aiDraftContent,
                 scheduledDateMillis = item.scheduledDateMillis,
-                scheduledTimeText = item.scheduledTimeText
+                scheduledTimeText = item.scheduledTimeText,
+                contextTag = item.contextTag
             )
             tasksToInsert.add(task)
         }

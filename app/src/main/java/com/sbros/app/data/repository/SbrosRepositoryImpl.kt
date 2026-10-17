@@ -100,4 +100,9 @@ class SbrosRepositoryImpl @Inject constructor(
     override suspend fun updateTaskSchedule(taskId: String, dateMillis: Long?, timeText: String?) {
         taskDao.updateTaskSchedule(taskId, dateMillis, timeText)
     }
+
+    override fun getQuickWinTask(): Flow<TaskItem?> {
+        return taskDao.getQuickWinTask().map { it?.toDomain() }
+    }
 }
+

@@ -1,5 +1,6 @@
 package com.sbros.app.ui.now.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,8 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.rounded.FactCheck
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -30,55 +31,56 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun CaptureDock(
     onVoiceCaptureClick: () -> Unit,
-    onTextCaptureClick: () -> Unit,
+    onReviewClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(64.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            .height(54.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Широкая кнопка голосового сброса
+        // Главная кнопка голосового сброса
         Surface(
             modifier = Modifier
                 .weight(1f)
-                .height(64.dp)
-                .clip(RoundedCornerShape(24.dp))
+                .height(54.dp)
+                .clip(RoundedCornerShape(18.dp))
                 .clickable { onVoiceCaptureClick() },
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(24.dp)
+            color = MaterialTheme.colorScheme.primary,
+            shape = RoundedCornerShape(18.dp),
+            shadowElevation = 4.dp
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Default.Mic,
+                    imageVector = Icons.Rounded.Mic,
                     contentDescription = "Голосовой сброс",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(28.dp)
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(22.dp)
                 )
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Column(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = "Сбросить мысли",
-                        style = MaterialTheme.typography.titleMedium.copy(
+                        style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
+                            fontSize = 13.5.sp
                         ),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         maxLines = 1
                     )
                     Text(
                         text = "Скажи всё подряд — ИИ разложит",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
                         maxLines = 1,
                         softWrap = false
                     )
@@ -86,23 +88,24 @@ fun CaptureDock(
             }
         }
 
-        // Квадратная кнопка быстрого перехода к тексту
+        // Вторичная кнопка предпросмотра/разбора
         Surface(
             modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .clickable { onTextCaptureClick() },
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            shape = RoundedCornerShape(24.dp)
+                .size(54.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .clickable { onReviewClick() },
+            color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(18.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             Box(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Keyboard,
-                    contentDescription = "Текстовый сброс",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(24.dp)
+                    imageVector = Icons.Rounded.FactCheck,
+                    contentDescription = "Проверить разбор ИИ",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }

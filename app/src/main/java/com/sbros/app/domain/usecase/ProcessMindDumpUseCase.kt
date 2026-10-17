@@ -49,14 +49,14 @@ class ProcessMindDumpUseCase @Inject constructor(
 
             val shelfType = try {
                 ShelfType.valueOf(item.shelf)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 ShelfType.SIMPLE_STEPS
             }
 
             val energyLevel = try {
                 EnergyLevel.valueOf(item.energyLevel)
-            } catch (e: Exception) {
-                EnergyLevel.EASY
+            } catch (_: Exception) {
+                EnergyLevel.MECHANICAL
             }
 
             val task = TaskEntity(
@@ -79,7 +79,8 @@ class ProcessMindDumpUseCase @Inject constructor(
                 aiDraftType = item.aiDraftType,
                 aiDraftContent = item.aiDraftContent,
                 scheduledDateMillis = item.scheduledDateMillis,
-                scheduledTimeText = item.scheduledTimeText
+                scheduledTimeText = item.scheduledTimeText,
+                contextTag = item.contextTag
             )
 
             tasksToInsert.add(task)

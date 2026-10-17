@@ -3,11 +3,15 @@ package com.sbros.app.ui.now
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sbros.app.data.local.PreferencesManager
+import com.sbros.app.domain.model.EditableParsedItem
 import com.sbros.app.domain.model.EnergyLevel
+import com.sbros.app.domain.model.ShelfType
 import com.sbros.app.domain.model.TaskItem
 import com.sbros.app.domain.model.ThemePalette
 import com.sbros.app.domain.usecase.CompleteTaskUseCase
 import com.sbros.app.domain.usecase.GetFocusTaskUseCase
+import com.sbros.app.domain.usecase.ProcessMindDumpUseCase
+import com.sbros.app.domain.usecase.SaveParsedTasksUseCase
 import com.sbros.app.domain.usecase.SimplifyTaskUseCase
 import com.sbros.app.domain.usecase.SkipTaskUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,10 +24,11 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 data class NowUiState(
-    val selectedEnergy: EnergyLevel = EnergyLevel.EASY,
+    val selectedEnergy: EnergyLevel = EnergyLevel.MECHANICAL,
     val focusTask: TaskItem? = null,
     val showCompletionFeedback: Boolean = false,
     val feedbackTitle: String = "Отлично, минус одна мысль!",
@@ -37,8 +42,8 @@ class NowViewModel @Inject constructor(
     private val simplifyTaskUseCase: SimplifyTaskUseCase,
     private val skipTaskUseCase: SkipTaskUseCase,
     private val completeTaskUseCase: CompleteTaskUseCase,
-    private val processMindDumpUseCase: com.sbros.app.domain.usecase.ProcessMindDumpUseCase,
-    private val saveParsedTasksUseCase: com.sbros.app.domain.usecase.SaveParsedTasksUseCase,
+    private val processMindDumpUseCase: ProcessMindDumpUseCase,
+    private val saveParsedTasksUseCase: SaveParsedTasksUseCase,
     private val aiParserApi: com.sbros.app.data.remote.AiParserApi,
     private val repository: com.sbros.app.domain.repository.SbrosRepository,
     private val preferencesManager: PreferencesManager
@@ -50,64 +55,78 @@ class NowViewModel @Inject constructor(
         }
     }
 
-    suspend fun parseTranscript(rawText: String): List<com.sbros.app.domain.model.EditableParsedItem> {
+    suspend fun parseTranscript(rawText: String): List<EditableParsedItem> {
         val trimmed = rawText.trim()
         if (trimmed.isNotBlank()) {
             val existingProjects = repository.getAllActiveProjects()
             val response = aiParserApi.parseTranscript(trimmed, existingProjects)
             if (response.parsedItems.isNotEmpty()) {
                 return response.parsedItems.map { dto ->
-                    com.sbros.app.domain.model.EditableParsedItem(
-                        id = java.util.UUID.randomUUID().toString(),
+                    EditableParsedItem(
+                        id = UUID.randomUUID().toString(),
                         title = dto.title,
-                        shelf = try { com.sbros.app.domain.model.ShelfType.valueOf(dto.shelf) } catch (_: Exception) { com.sbros.app.domain.model.ShelfType.SIMPLE_STEPS },
-                        energyLevel = try { com.sbros.app.domain.model.EnergyLevel.valueOf(dto.energyLevel) } catch (_: Exception) { com.sbros.app.domain.model.EnergyLevel.EASY },
+                        shelf = try { ShelfType.valueOf(dto.shelf) } catch (_: Exception) { ShelfType.SIMPLE_STEPS },
+                        energyLevel = try { EnergyLevel.valueOf(dto.energyLevel) } catch (_: Exception) { EnergyLevel.MECHANICAL },
                         aiHint = dto.aiHint,
                         categoryBadge = dto.categoryBadge,
                         estimatedMinutes = dto.estimatedMinutes,
                         simplifiedSteps = dto.simplifiedSteps,
                         matchedProjectId = dto.matchedProjectId,
-                        newProjectTitle = dto.newProjectTitle
+                        newProjectTitle = dto.newProjectTitle,
+                        aiDraftType = dto.aiDraftType,
+                        aiDraftContent = dto.aiDraftContent,
+                        scheduledDateMillis = dto.scheduledDateMillis,
+                        scheduledTimeText = dto.scheduledTimeText,
+                        contextTag = dto.contextTag
                     )
                 }
             }
         }
-        // Если пустой ввод или чистый шум — возвращаем эталонные 3 карточки из sbros_v3_swipe.html
+        // Эталонный фолбек без эмодзи по sbros_production_m3.html
         return listOf(
-            com.sbros.app.domain.model.EditableParsedItem(
-                title = "Отправить старосте тему работы в Telegram",
-                shelf = com.sbros.app.domain.model.ShelfType.SIMPLE_STEPS,
-                energyLevel = com.sbros.app.domain.model.EnergyLevel.FIVE_MIN,
-                categoryBadge = "⚡ Мессенджер",
-                estimatedMinutes = 2,
-                aiHint = "Быстрое действие, которое сразу закроет хвост."
+            EditableParsedItem(
+                title = "Заказать аккумуляторы АА на маркетплейсе",
+                shelf = ShelfType.SIMPLE_STEPS,
+                energyLevel = EnergyLevel.MECHANICAL,
+                categoryBadge = "Бытовое • Покупки",
+                estimatedMinutes = 3,
+                aiHint = "ИИ отделил это от мыслей про камеру в простую покупку.",
+                aiDraftType = "Рекомендация ИИ",
+                aiDraftContent = "Поиск: Ni-MH AA 2100-2500 mAh (низкий саморазряд LSD, держат привод объектива без просадки напряжения).",
+                contextTag = "out"
             ),
-            com.sbros.app.domain.model.EditableParsedItem(
+            EditableParsedItem(
                 title = "Написать 3 абзаца черновика введения",
-                shelf = com.sbros.app.domain.model.ShelfType.BIG_THINGS,
-                energyLevel = com.sbros.app.domain.model.EnergyLevel.FOCUS,
+                shelf = ShelfType.BIG_THINGS,
+                energyLevel = EnergyLevel.FLOW,
                 categoryBadge = "Большое дело: Курсовая",
                 estimatedMinutes = 20,
-                aiHint = "✨ ИИ разбил проект «Курсовая» и выделил легкий 1-й шаг"
+                aiHint = "ИИ разбил проект «Курсовая» и выделил легкий 1-й шаг",
+                aiDraftType = "План введения",
+                aiDraftContent = "1. Проблема когнитивного перегруза.\n2. Снижение барьера входа.\n3. Декомпозиция с помощью ИИ.",
+                contextTag = "pc"
             ),
-            com.sbros.app.domain.model.EditableParsedItem(
+            EditableParsedItem(
                 title = "Правки по первой главе от научрука",
-                shelf = com.sbros.app.domain.model.ShelfType.WAITING,
-                energyLevel = com.sbros.app.domain.model.EnergyLevel.EASY,
+                shelf = ShelfType.WAITING,
+                energyLevel = EnergyLevel.MECHANICAL,
                 categoryBadge = "Ожидание • Контроль",
                 estimatedMinutes = 0,
-                aiHint = "Спрятано из экрана «Сейчас», чтобы не мешать"
+                aiHint = "Спрятано из экрана «Сейчас», чтобы не мешать",
+                aiDraftType = "Черновик напоминания",
+                aiDraftContent = "«Здравствуйте! Удалось ли посмотреть черновик первой главы?»",
+                contextTag = "phone"
             )
         )
     }
 
-    fun saveParsedTasks(items: List<com.sbros.app.domain.model.EditableParsedItem>) {
+    fun saveParsedTasks(items: List<EditableParsedItem>) {
         viewModelScope.launch {
             saveParsedTasksUseCase(items)
         }
     }
 
-    private val _selectedEnergy = MutableStateFlow(EnergyLevel.EASY)
+    private val _selectedEnergy = MutableStateFlow(EnergyLevel.MECHANICAL)
     val selectedEnergy: StateFlow<EnergyLevel> = _selectedEnergy.asStateFlow()
 
     private val _showCompletionFeedback = MutableStateFlow(false)
@@ -129,11 +148,25 @@ class NowViewModel @Inject constructor(
             initialValue = null
         )
 
+    val quickWinTask: StateFlow<TaskItem?> = repository.getQuickWinTask()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    val userName: StateFlow<String> = preferencesManager.userNameFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = "Данила"
+        )
+
     val themePalette: StateFlow<ThemePalette> = preferencesManager.themePaletteFlow
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = ThemePalette.SAGE
+            initialValue = ThemePalette.LAVENDER
         )
 
     val isDarkMode: StateFlow<Boolean?> = preferencesManager.isDarkModeFlow
@@ -143,16 +176,28 @@ class NowViewModel @Inject constructor(
             initialValue = null
         )
 
-    val hasCompletedOnboarding: StateFlow<Boolean?> = preferencesManager.hasCompletedOnboardingFlow
+    val hasCompletedOnboarding: StateFlow<Boolean> = preferencesManager.hasCompletedOnboardingFlow
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
-            initialValue = null
+            initialValue = false
         )
 
     fun completeOnboarding() {
         viewModelScope.launch {
             preferencesManager.setOnboardingCompleted(true)
+        }
+    }
+
+    fun resetOnboarding() {
+        viewModelScope.launch {
+            preferencesManager.setOnboardingCompleted(false)
+        }
+    }
+
+    fun setUserName(name: String) {
+        viewModelScope.launch {
+            preferencesManager.setUserName(name)
         }
     }
 
@@ -184,6 +229,17 @@ class NowViewModel @Inject constructor(
             delay(1500)
             _showCompletionFeedback.value = false
         }
+    }
+
+    fun completeQuickWinTask(taskId: String) {
+        viewModelScope.launch {
+            completeTaskUseCase(taskId)
+        }
+    }
+
+    fun completeQuickWinTask() {
+        val task = quickWinTask.value ?: return
+        completeQuickWinTask(task.id)
     }
 
     fun setThemePalette(palette: ThemePalette) {

@@ -3,6 +3,7 @@ package com.sbros.app.ui.calendar
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sbros.app.domain.model.TaskItem
+import com.sbros.app.domain.model.toEntity
 import com.sbros.app.domain.repository.SbrosRepository
 import com.sbros.app.domain.usecase.CompleteTaskUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,20 +16,28 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
+import java.util.UUID
 import javax.inject.Inject
 
-data class CalendarDayItem(
-    val dateMillis: Long,
-    val dayOfMonth: Int,
-    val dayOfWeekShort: String,
-    val hasTasks: Boolean,
-    val isSelected: Boolean
+data class CalendarGridCell(
+    val dayNumber: Int?, // null for empty offset cells
+    val dateMillis: Long?,
+    val hasTasks: Boolean = false,
+    val isSelected: Boolean = false
+)
+
+data class CalendarMonthInfo(
+    val year: Int,
+    val monthIndex: Int, // 0-based
+    val monthTitle: String,
+    val leadingOffset: Int,
+    val totalDays: Int
 )
 
 data class CalendarUiState(
-    val monthTitle: String = "Октябрь",
-    val days: List<CalendarDayItem> = emptyList(),
-    val selectedDateMillis: Long = 0L,
+    val monthTitle: String = "Октябрь 2026",
+    val selectedDay: Int = 17,
+    val gridCells: List<CalendarGridCell> = emptyList(),
     val tasksForDay: List<TaskItem> = emptyList()
 )
 
@@ -38,11 +47,21 @@ class CalendarViewModel @Inject constructor(
     private val completeTaskUseCase: CompleteTaskUseCase
 ) : ViewModel() {
 
-    private val todayStartMillis = getStartOfDay(System.currentTimeMillis())
-    private val _selectedDateMillis = MutableStateFlow(todayStartMillis)
-    val selectedDateMillis: StateFlow<Long> = _selectedDateMillis.asStateFlow()
+    // Начальный месяц — Октябрь 2026 (согласно эталону sbros_production_m3.html)
+    private val _calendarState = MutableStateFlow(
+        Calendar.getInstance().apply {
+            set(Calendar.YEAR, 2026)
+            set(Calendar.MONTH, Calendar.OCTOBER)
+            set(Calendar.DAY_OF_MONTH, 17)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+    )
 
-    private val weekDaysList = generateCurrentWeekDays()
+    private val _selectedDay = MutableStateFlow(17)
+    val selectedDay: StateFlow<Int> = _selectedDay.asStateFlow()
 
     private val scheduledTasks: StateFlow<List<TaskItem>> = repository.getScheduledTasks()
         .stateIn(
@@ -52,45 +71,85 @@ class CalendarViewModel @Inject constructor(
         )
 
     val uiState: StateFlow<CalendarUiState> = combine(
-        _selectedDateMillis,
+        _calendarState,
+        _selectedDay,
         scheduledTasks
-    ) { selectedDate, tasks ->
-        val cal = Calendar.getInstance().apply { timeInMillis = selectedDate }
-        val rawMonth = cal.getDisplayName(Calendar.MONTH, Calendar.LONG_STANDALONE, Locale("ru")) ?: "Октябрь"
-        val monthTitle = rawMonth.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("ru")) else it.toString() }
+    ) { calState, selectedDay, tasks ->
+        val year = calState.get(Calendar.YEAR)
+        val month = calState.get(Calendar.MONTH)
 
-        val dayItems = weekDaysList.map { dayMillis ->
-            val dayStart = getStartOfDay(dayMillis)
-            val dayEnd = getEndOfDay(dayMillis)
-            val dayCal = Calendar.getInstance().apply { timeInMillis = dayMillis }
-            val dayNum = dayCal.get(Calendar.DAY_OF_MONTH)
-            val dayOfWeek = formatDayOfWeek(dayCal.get(Calendar.DAY_OF_WEEK))
+        // Название месяца и год
+        val rawMonth = calState.getDisplayName(Calendar.MONTH, Calendar.LONG_STANDALONE, Locale("ru")) ?: "Октябрь"
+        val capitalizedMonth = rawMonth.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("ru")) else it.toString() }
+        val monthTitle = "$capitalizedMonth $year"
+
+        // Дней в месяце
+        val calClone = calState.clone() as Calendar
+        calClone.set(Calendar.DAY_OF_MONTH, 1)
+        val maxDays = calClone.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+        // Смещение первого дня (Пн = 0, Вт = 1, ... Вс = 6)
+        val firstDayOfWeek = calClone.get(Calendar.DAY_OF_WEEK)
+        val leadingOffset = when (firstDayOfWeek) {
+            Calendar.MONDAY -> 0
+            Calendar.TUESDAY -> 1
+            Calendar.WEDNESDAY -> 2
+            Calendar.THURSDAY -> 3
+            Calendar.FRIDAY -> 4
+            Calendar.SATURDAY -> 5
+            Calendar.SUNDAY -> 6
+            else -> 0
+        }
+
+        // Формирование ячеек сетки
+        val cells = mutableListOf<CalendarGridCell>()
+        for (i in 0 until leadingOffset) {
+            cells.add(CalendarGridCell(dayNumber = null, dateMillis = null))
+        }
+
+        for (d in 1..maxDays) {
+            calClone.set(Calendar.DAY_OF_MONTH, d)
+            val dayStart = calClone.timeInMillis
+            calClone.set(Calendar.HOUR_OF_DAY, 23)
+            calClone.set(Calendar.MINUTE, 59)
+            calClone.set(Calendar.SECOND, 59)
+            val dayEnd = calClone.timeInMillis
+            calClone.set(Calendar.HOUR_OF_DAY, 0)
+            calClone.set(Calendar.MINUTE, 0)
+            calClone.set(Calendar.SECOND, 0)
 
             val hasTasks = tasks.any { task ->
                 val taskDate = task.scheduledDateMillis
                 taskDate != null && taskDate in dayStart..dayEnd && !task.isCompleted
             }
 
-            CalendarDayItem(
-                dateMillis = dayMillis,
-                dayOfMonth = dayNum,
-                dayOfWeekShort = dayOfWeek,
-                hasTasks = hasTasks,
-                isSelected = isSameDay(selectedDate, dayMillis)
+            cells.add(
+                CalendarGridCell(
+                    dayNumber = d,
+                    dateMillis = dayStart,
+                    hasTasks = hasTasks,
+                    isSelected = (d == selectedDay)
+                )
             )
         }
 
-        val selectedStart = getStartOfDay(selectedDate)
-        val selectedEnd = getEndOfDay(selectedDate)
+        // Задачи на выбранный день
+        calClone.set(Calendar.DAY_OF_MONTH, selectedDay)
+        val selDayStart = calClone.timeInMillis
+        calClone.set(Calendar.HOUR_OF_DAY, 23)
+        calClone.set(Calendar.MINUTE, 59)
+        calClone.set(Calendar.SECOND, 59)
+        val selDayEnd = calClone.timeInMillis
+
         val tasksForSelectedDay = tasks.filter { task ->
             val taskDate = task.scheduledDateMillis
-            taskDate != null && taskDate in selectedStart..selectedEnd
+            taskDate != null && taskDate in selDayStart..selDayEnd
         }
 
         CalendarUiState(
             monthTitle = monthTitle,
-            days = dayItems,
-            selectedDateMillis = selectedDate,
+            selectedDay = selectedDay,
+            gridCells = cells,
             tasksForDay = tasksForSelectedDay
         )
     }.stateIn(
@@ -99,8 +158,15 @@ class CalendarViewModel @Inject constructor(
         initialValue = CalendarUiState()
     )
 
-    fun selectDay(dateMillis: Long) {
-        _selectedDateMillis.value = getStartOfDay(dateMillis)
+    fun changeMonth(delta: Int) {
+        val current = _calendarState.value.clone() as Calendar
+        current.add(Calendar.MONTH, delta)
+        _calendarState.value = current
+        _selectedDay.value = 1
+    }
+
+    fun selectDay(dayNumber: Int) {
+        _selectedDay.value = dayNumber
     }
 
     fun completeTask(taskId: String) {
@@ -109,63 +175,24 @@ class CalendarViewModel @Inject constructor(
         }
     }
 
-    private fun generateCurrentWeekDays(): List<Long> {
-        val cal = Calendar.getInstance().apply {
-            timeInMillis = System.currentTimeMillis()
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            // Показываем вчера, сегодня и следующие 5 дней (всего 7 дней)
-            add(Calendar.DAY_OF_YEAR, -1)
-        }
-        val list = mutableListOf<Long>()
-        for (i in 0 until 7) {
-            list.add(cal.timeInMillis)
-            cal.add(Calendar.DAY_OF_YEAR, 1)
-        }
-        return list
-    }
+    fun addCalendarEventForSelectedDay() {
+        viewModelScope.launch {
+            val cal = _calendarState.value.clone() as Calendar
+            cal.set(Calendar.DAY_OF_MONTH, _selectedDay.value)
+            cal.set(Calendar.HOUR_OF_DAY, 16)
+            cal.set(Calendar.MINUTE, 0)
 
-    private fun formatDayOfWeek(dayOfWeek: Int): String {
-        return when (dayOfWeek) {
-            Calendar.MONDAY -> "ПН"
-            Calendar.TUESDAY -> "ВТ"
-            Calendar.WEDNESDAY -> "СР"
-            Calendar.THURSDAY -> "ЧТ"
-            Calendar.FRIDAY -> "ПТ"
-            Calendar.SATURDAY -> "СБ"
-            Calendar.SUNDAY -> "ВС"
-            else -> ""
+            val newTask = TaskItem(
+                id = UUID.randomUUID().toString(),
+                title = "Новая встреча в календаре",
+                originalQuote = "Добавлено вручную на ${_selectedDay.value} число",
+                categoryBadge = "Личное",
+                estimatedMinutes = 15,
+                scheduledDateMillis = cal.timeInMillis,
+                scheduledTimeText = "16:00",
+                contextTag = "home"
+            )
+            repository.insertTasks(listOf(newTask.toEntity()))
         }
-    }
-
-    private fun isSameDay(time1: Long, time2: Long): Boolean {
-        val c1 = Calendar.getInstance().apply { timeInMillis = time1 }
-        val c2 = Calendar.getInstance().apply { timeInMillis = time2 }
-        return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&
-                c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
-    }
-
-    private fun getStartOfDay(timeMillis: Long): Long {
-        val cal = Calendar.getInstance().apply {
-            timeInMillis = timeMillis
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        return cal.timeInMillis
-    }
-
-    private fun getEndOfDay(timeMillis: Long): Long {
-        val cal = Calendar.getInstance().apply {
-            timeInMillis = timeMillis
-            set(Calendar.HOUR_OF_DAY, 23)
-            set(Calendar.MINUTE, 59)
-            set(Calendar.SECOND, 59)
-            set(Calendar.MILLISECOND, 999)
-        }
-        return cal.timeInMillis
     }
 }

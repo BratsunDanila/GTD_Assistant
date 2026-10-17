@@ -8,7 +8,19 @@ import java.util.Calendar
 
 object SeedData {
 
-    private fun getDayTimestamp(offsetDays: Int, hour: Int, minute: Int): Long {
+    private fun getCalTimestamp(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long {
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.YEAR, year)
+        cal.set(Calendar.MONTH, month)
+        cal.set(Calendar.DAY_OF_MONTH, day)
+        cal.set(Calendar.HOUR_OF_DAY, hour)
+        cal.set(Calendar.MINUTE, minute)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return cal.timeInMillis
+    }
+
+    private fun getRelativeTimestamp(offsetDays: Int, hour: Int, minute: Int): Long {
         val cal = Calendar.getInstance()
         cal.add(Calendar.DAY_OF_YEAR, offsetDays)
         cal.set(Calendar.HOUR_OF_DAY, hour)
@@ -26,280 +38,261 @@ object SeedData {
         ),
         ProjectEntity(
             id = "project-sbros",
-            title = "Приложение «Сброс»",
+            title = "Приложение Сброс",
             createdAt = System.currentTimeMillis() - 86400000L
         )
     )
 
     val initialTasks = listOf(
-        // 1. Легкое (EASY) — Заказ батареек
+        // 1. Механика (MECHANICAL) — Заказ батареек
         TaskEntity(
-            id = "task-easy-batteries-buy",
+            id = "task-mech-batteries-buy",
             projectId = null,
             orderInProject = 0,
-            originalQuote = "надо купить батарейки для камеры",
+            originalQuote = "Из речи: «...не забыть купить аккумуляторы АА для камеры...»",
             title = "Заказать аккумуляторы АА на маркетплейсе",
             simplifiedSteps = listOf(
-                "Открыть приложение маркетплейса и вбить в поиск «Аккумуляторы АА»",
-                "Кинуть первую подходящую упаковку в корзину"
+                "Открыть маркетплейс и вбить «Аккумуляторы АА Ni-MH 4 шт»",
+                "Положить первую подходящую упаковку в корзину"
             ),
             currentSimplifyIndex = 0,
             aiHint = "ИИ отделил это от мыслей про камеру в простую покупку.",
-            categoryBadge = "Бытовое • Не требует фокуса",
+            categoryBadge = "Бытовое • Покупки",
             estimatedMinutes = 3,
             shelf = ShelfType.SIMPLE_STEPS,
-            energyLevel = EnergyLevel.EASY,
+            energyLevel = EnergyLevel.MECHANICAL,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 1000L,
             createdAt = System.currentTimeMillis() - 3600000L * 3,
-            aiDraftType = "Поисковый фильтр ИИ",
-            aiDraftContent = "Рекомендация: бери Ni-MH от 2000 mAh (например, GP или Robiton) — они держат вспышку и объектив без просадки напряжения.",
-            scheduledDateMillis = getDayTimestamp(1, 12, 0),
-            scheduledTimeText = "12:00"
+            aiDraftType = "Рекомендация ИИ",
+            aiDraftContent = "Поиск: Ni-MH AA 2100-2500 mAh (низкий саморазряд LSD, держат привод объектива без просадки напряжения).",
+            scheduledDateMillis = getCalTimestamp(2026, Calendar.OCTOBER, 17, 19, 30),
+            scheduledTimeText = "19:30",
+            contextTag = "out"
         ),
 
-        // 2. Легкое (EASY) — Зарядка батареек
+        // 2. Механика (MECHANICAL) — Зарядка батареек
         TaskEntity(
-            id = "task-easy-batteries-charge",
+            id = "task-mech-batteries-charge",
             projectId = null,
             orderInProject = 0,
-            originalQuote = "батарейки валяются разряженные",
-            title = "Поставить старые батарейки на зарядку",
+            originalQuote = "Из речи: «...поставить старые батарейки заряжаться...»",
+            title = "Поставить старые аккумуляторы в зарядник",
             simplifiedSteps = listOf(
-                "Просто достать зарядник из ящика на стол",
-                "Вставить одну батарейку в слот"
+                "Достать зарядное устройство из ящика стола",
+                "Положить аккумуляторы рядом с розеткой"
             ),
             currentSimplifyIndex = 0,
             aiHint = "Легкое физическое действие, чтобы переключиться.",
-            categoryBadge = "Дом • Рутина",
+            categoryBadge = "Дом • Механика",
             estimatedMinutes = 2,
             shelf = ShelfType.SIMPLE_STEPS,
-            energyLevel = EnergyLevel.EASY,
+            energyLevel = EnergyLevel.MECHANICAL,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 2000L,
             createdAt = System.currentTimeMillis() - 3600000L * 2,
-            aiDraftType = "Быстрая подсказка",
-            aiDraftContent = "Проверь, чтобы оба аккумулятора были из одной пары перед установкой в слоты зарядного устройства.",
+            aiDraftType = "Совет ИИ",
+            aiDraftContent = "Совет: проверь, чтобы оба аккумулятора были из одной серии перед зарядкой.",
             scheduledDateMillis = null,
-            scheduledTimeText = null
+            scheduledTimeText = null,
+            contextTag = "home"
         ),
 
-        // 3. На 5 мин (FIVE_MIN) — Сообщение старосте
+        // 3. Механика (MECHANICAL) — Быстрый хвост до 2 минут (Quick Win)
         TaskEntity(
-            id = "task-quick-telegram",
+            id = "task-quick-win-telegram",
             projectId = null,
             orderInProject = 0,
-            originalQuote = "старосте надо тему работы скинуть блин",
-            title = "Отправить старосте тему работы в Telegram",
+            originalQuote = "Из речи: «...старосте надо тему работы скинуть...»",
+            title = "Отправить старосте тему работы в ТГ",
             simplifiedSteps = listOf(
-                "Открыть диалог со старостой и скопировать туда название темы",
-                "Написать «Привет, тема: ...»"
+                "Открыть диалог со старостой",
+                "Вставить готовую заготовку темы"
             ),
             currentSimplifyIndex = 0,
-            aiHint = "Быстрое дело, которое сразу освободит голову.",
-            categoryBadge = "На пару минут • Мессенджер",
+            aiHint = "Дело до 2 минут — закрой сразу, чтобы не висело в голове.",
+            categoryBadge = "Учеба • Быстрое",
             estimatedMinutes = 1,
             shelf = ShelfType.SIMPLE_STEPS,
-            energyLevel = EnergyLevel.FIVE_MIN,
+            energyLevel = EnergyLevel.MECHANICAL,
             isCompleted = false,
             skippedCount = 0,
-            lastShownAt = 1000L,
+            lastShownAt = 500L,
             createdAt = System.currentTimeMillis() - 3600000L * 4,
             aiDraftType = "Черновик сообщения",
             aiDraftContent = "«Привет! Запиши мою тему курсовой: Разработка мобильного GTD-ассистента со свайпами и голосовым вводом»",
-            scheduledDateMillis = getDayTimestamp(0, 16, 0),
-            scheduledTimeText = "16:00"
+            scheduledDateMillis = getCalTimestamp(2026, Calendar.OCTOBER, 15, 18, 0),
+            scheduledTimeText = "18:00",
+            contextTag = "phone"
         ),
 
-        // 4. Поработать (FOCUS) — Курсовая: 1-й шаг
+        // 4. Один шаг (SINGLE_STEP) — Схема Room
         TaskEntity(
-            id = "task-focus-coursework-intro",
-            projectId = "project-coursework",
-            orderInProject = 1,
-            originalQuote = "надо хотя бы за курсач сесть",
-            title = "Написать черновик введения (3 абзаца)",
-            simplifiedSteps = listOf(
-                "Открыть документ и написать 3 коротких буллита: о чем вообще работа",
-                "Просто создать пустой файл и написать заголовок на первой странице"
-            ),
-            currentSimplifyIndex = 0,
-            aiHint = "ИИ спрятал остальной курсач, чтобы он не давил.",
-            categoryBadge = "Большое дело: Курсовая",
-            estimatedMinutes = 20,
-            shelf = ShelfType.BIG_THINGS,
-            energyLevel = EnergyLevel.FOCUS,
-            isCompleted = false,
-            skippedCount = 0,
-            lastShownAt = 1000L,
-            createdAt = System.currentTimeMillis() - 3600000L * 5,
-            aiDraftType = "Стартовый каркас текста",
-            aiDraftContent = "1. Проблема перегруза в классических таск-менеджерах.\n2. Снижение порога входа за счет голосового потока (Mind Sweep).\n3. Автоматическая декомпозиция задач через LLM.",
-            scheduledDateMillis = getDayTimestamp(0, 14, 0),
-            scheduledTimeText = "14:00"
-        ),
-
-        // 5. Поработать (FOCUS) — Курсовая: 2-й шаг (скрыт внутри проекта)
-        TaskEntity(
-            id = "task-focus-coursework-plan",
-            projectId = "project-coursework",
-            orderInProject = 2,
-            originalQuote = "сделать план глав для курсача",
-            title = "Составить содержание и список глав",
-            simplifiedSteps = listOf(
-                "Набросать 3 названия глав",
-                "Скопировать шаблон оглавления из методички"
-            ),
-            currentSimplifyIndex = 0,
-            aiHint = "Второй шаг курсовой — пока скрыт, чтобы не пугать объемом.",
-            categoryBadge = "Большое дело: Курсовая",
-            estimatedMinutes = 25,
-            shelf = ShelfType.BIG_THINGS,
-            energyLevel = EnergyLevel.FOCUS,
-            isCompleted = false,
-            skippedCount = 0,
-            lastShownAt = 0L,
-            createdAt = System.currentTimeMillis() - 3600000L * 5,
-            aiDraftType = "Стартовый план",
-            aiDraftContent = "Глава 1. Анализ методологий GTD.\nГлава 2. Архитектура и стек Compose + Room.\nГлава 3. Оценка когнитивной нагрузки пользователя.",
-            scheduledDateMillis = null,
-            scheduledTimeText = null
-        ),
-
-        // 6. Поработать (FOCUS) — Приложение «Сброс»: 1-й шаг
-        TaskEntity(
-            id = "task-focus-sbros-palette",
+            id = "task-step-sbros-db",
             projectId = "project-sbros",
-            orderInProject = 1,
-            originalQuote = "надо определиться с цветами в приложении",
-            title = "Выбрать базовую палитру M3",
+            orderInProject = 2,
+            originalQuote = "Из речи: «...проверить схему Room для сохранения задач...»",
+            title = "Проверить поля TaskEntity в Room Database",
             simplifiedSteps = listOf(
-                "Посмотреть 4 палитры на стенде",
-                "Выбрать Шалфей как основной"
+                "Открыть файл Entities.kt в Android Studio",
+                "Сверить список полей с README"
             ),
             currentSimplifyIndex = 0,
-            aiHint = "Первый шаг по проекту приложения.",
-            categoryBadge = "Большое дело: Сброс",
+            aiHint = "Понятный шаг разработки на 10-15 минут.",
+            categoryBadge = "Приложение Сброс • Шаг 2/4",
             estimatedMinutes = 15,
             shelf = ShelfType.BIG_THINGS,
-            energyLevel = EnergyLevel.FOCUS,
+            energyLevel = EnergyLevel.SINGLE_STEP,
             isCompleted = false,
             skippedCount = 0,
-            lastShownAt = 2000L,
-            createdAt = System.currentTimeMillis() - 3600000L * 6,
-            aiDraftType = "Совет ИИ",
-            aiDraftContent = "Тональные палитры Material 3 обеспечивают комфортный контраст в светлой и тёмной темах.",
-            scheduledDateMillis = null,
-            scheduledTimeText = null
+            lastShownAt = 3000L,
+            createdAt = System.currentTimeMillis() - 3600000L * 5,
+            aiDraftType = "Схема Room",
+            aiDraftContent = "@Entity(tableName = \"tasks\")\ndata class TaskEntity(@PrimaryKey val id: String, val title: String, val shelf: String)",
+            scheduledDateMillis = getCalTimestamp(2026, Calendar.OCTOBER, 20, 11, 0),
+            scheduledTimeText = "11:00",
+            contextTag = "pc"
         ),
 
-        // 7. Жду от других (WAITING)
+        // 5. Поток (FLOW) — Курсовая: Введение
         TaskEntity(
-            id = "task-waiting-supervisor",
-            projectId = null,
-            orderInProject = 0,
-            originalQuote = "научрук обещал посмотреть черновик до четверга",
-            title = "Правки по первой главе от научрука",
+            id = "task-flow-coursework-intro",
+            projectId = "project-coursework",
+            orderInProject = 1,
+            originalQuote = "Из речи: «...надо хотя бы введение к курсачу родить...»",
+            title = "Написать черновик введения (3 абзаца)",
             simplifiedSteps = listOf(
-                "Проверить почту раз в день",
-                "Напомнить, если не ответит до четверга"
+                "Набросать 3 коротких тезиса своими словами",
+                "Создать документ и написать заголовок главы"
             ),
             currentSimplifyIndex = 0,
-            aiHint = "Дело на паузе, от тебя действий сейчас не требуется.",
-            categoryBadge = "Ожидание • Учеба",
-            estimatedMinutes = 0,
-            shelf = ShelfType.WAITING,
-            energyLevel = EnergyLevel.EASY,
+            aiHint = "ИИ спрятал остальные главы, оставив только черновик на 20 минут.",
+            categoryBadge = "Курсовая работа • Шаг 1/5",
+            estimatedMinutes = 20,
+            shelf = ShelfType.BIG_THINGS,
+            energyLevel = EnergyLevel.FLOW,
+            isCompleted = false,
+            skippedCount = 0,
+            lastShownAt = 4000L,
+            createdAt = System.currentTimeMillis() - 3600000L * 6,
+            aiDraftType = "План введения",
+            aiDraftContent = "План введения:\n1. Проблема когнитивного перегруза в сложных GTD-системах.\n2. Голосовой сбор мыслей (Mind Sweep).\n3. Декомпозиция задач с помощью LLM.",
+            scheduledDateMillis = getCalTimestamp(2026, Calendar.OCTOBER, 17, 14, 0),
+            scheduledTimeText = "14:00",
+            contextTag = "pc"
+        ),
+
+        TaskEntity(
+            id = "task-flow-coursework-outline",
+            projectId = "project-coursework",
+            orderInProject = 2,
+            originalQuote = "Из речи: «...составить содержание и список глав...»",
+            title = "Составить содержание и список глав",
+            simplifiedSteps = listOf(
+                "Написать названия трех глав",
+                "Сверить со структурой методички"
+            ),
+            currentSimplifyIndex = 0,
+            aiHint = "Второй шаг курсовой, откроется после завершения введения.",
+            categoryBadge = "Курсовая работа • Шаг 2/5",
+            estimatedMinutes = 15,
+            shelf = ShelfType.BIG_THINGS,
+            energyLevel = EnergyLevel.FLOW,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 0L,
             createdAt = System.currentTimeMillis() - 3600000L * 7,
-            aiDraftType = "Черновик напоминания",
-            aiDraftContent = "«Здравствуйте! Подскажите, пожалуйста, удалось ли посмотреть черновик главы?»",
-            scheduledDateMillis = getDayTimestamp(-1, 14, 0),
-            scheduledTimeText = "14:00"
+            aiDraftType = "Структура",
+            aiDraftContent = "Глава 1. Теоретические основы...\nГлава 2. Анализ и проектирование...\nГлава 3. Практическая реализация...",
+            scheduledDateMillis = null,
+            scheduledTimeText = null,
+            contextTag = "pc"
         ),
 
-        // 8. На потом и отдых (SOMEDAY)
+        // 6. Жду ответа (WAITING) — Научрук
         TaskEntity(
-            id = "task-someday-dune",
+            id = "task-waiting-supervisor",
             projectId = null,
             orderInProject = 0,
-            originalQuote = "в пятницу надо фильм глянуть или сериал какой",
-            title = "Посмотреть фильм «Дюна 2» в пятницу",
+            originalQuote = "Из речи: «...научрук обещал посмотреть первую главу...»",
+            title = "Правки по первой главе от научрука",
             simplifiedSteps = listOf(
-                "Добавить в закладки онлайн-кинотеатра",
-                "Купить попкорн"
+                "Проверить почту или Telegram",
+                "Вежливо напомнить в четверг, если не ответит"
             ),
             currentSimplifyIndex = 0,
-            aiHint = "Приятный план на отдых без обязательств.",
-            categoryBadge = "Идея • Отдых",
+            aiHint = "Дело на паузе, от тебя действий сейчас не требуется.",
+            categoryBadge = "Курсовая работа",
+            estimatedMinutes = 0,
+            shelf = ShelfType.WAITING,
+            energyLevel = EnergyLevel.MECHANICAL,
+            isCompleted = false,
+            skippedCount = 0,
+            lastShownAt = 0L,
+            createdAt = System.currentTimeMillis() - 86400000L * 2,
+            aiDraftType = "Черновик напоминания",
+            aiDraftContent = "«Здравствуйте! Подскажите, пожалуйста, удалось ли посмотреть черновик первой главы?»",
+            scheduledDateMillis = null,
+            scheduledTimeText = null,
+            contextTag = "phone"
+        ),
+
+        // 7. На потом и идеи (SOMEDAY) — Фильм
+        TaskEntity(
+            id = "task-someday-movie",
+            projectId = null,
+            orderInProject = 0,
+            originalQuote = "Из речи: «...надо глянуть новый фильм на выходных...»",
+            title = "Посмотреть новый фильм на выходных",
+            simplifiedSteps = listOf(
+                "Добавить в список «Буду смотреть» на Кинопоиске",
+                "Глянуть трейлер на 1 минуту"
+            ),
+            currentSimplifyIndex = 0,
+            aiHint = "Приятная идея без дедлайнов и обязательств.",
+            categoryBadge = "Отдых",
             estimatedMinutes = 0,
             shelf = ShelfType.SOMEDAY,
-            energyLevel = EnergyLevel.EASY,
+            energyLevel = EnergyLevel.MECHANICAL,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 0L,
-            createdAt = System.currentTimeMillis() - 3600000L * 8,
-            aiDraftType = "План отдыха",
-            aiDraftContent = "Дюна 2 идет 2 ч 46 мин. Отличный повод заказать попкорн и полностью отключить уведомления.",
-            scheduledDateMillis = getDayTimestamp(0, 20, 0),
-            scheduledTimeText = "20:00"
+            createdAt = System.currentTimeMillis() - 86400000L * 3,
+            aiDraftType = "Совет ИИ",
+            aiDraftContent = "Хороший отдых восстанавливает силы. Выбери вечер субботы.",
+            scheduledDateMillis = null,
+            scheduledTimeText = null,
+            contextTag = "home"
         ),
 
-        // 9. Календарная задача: Лабораторная (вчера/четверг)
+        // 8. Справочник и заметки (REFERENCE) — ГОСТ
         TaskEntity(
-            id = "task-cal-lab-report",
+            id = "task-ref-gost",
             projectId = null,
             orderInProject = 0,
-            originalQuote = "сдать отчет по лабораторной в четверг в 18:00",
-            title = "Сдать отчет по лабораторной",
+            originalQuote = "Справочная информация",
+            title = "Требования ГОСТ к оформлению списка литературы",
             simplifiedSteps = listOf(
-                "Проверить титульный лист",
-                "Загрузить в личный кабинет студента"
+                "Открыть сохраненную методичку",
+                "Скопировать шаблон оформления источников"
             ),
             currentSimplifyIndex = 0,
-            aiHint = "Дедлайн зафиксирован в календаре.",
-            categoryBadge = "📚 Учеба • Дедлайн",
-            estimatedMinutes = 15,
-            shelf = ShelfType.SIMPLE_STEPS,
-            energyLevel = EnergyLevel.FOCUS,
+            aiHint = "Справочная заметка для быстрой сверки перед сдачей.",
+            categoryBadge = "Курсовая работа",
+            estimatedMinutes = 0,
+            shelf = ShelfType.REFERENCE,
+            energyLevel = EnergyLevel.SINGLE_STEP,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 0L,
-            createdAt = System.currentTimeMillis() - 86400000L,
-            aiDraftType = "Чек-лист проверки",
-            aiDraftContent = "1. Номер варианта.\n2. Выводы по работе.\n3. Скриншоты работы программы.",
-            scheduledDateMillis = getDayTimestamp(-1, 18, 0),
-            scheduledTimeText = "18:00"
-        ),
-
-        // 10. Календарная задача: Кафедра (понедельник)
-        TaskEntity(
-            id = "task-cal-department",
-            projectId = null,
-            orderInProject = 0,
-            originalQuote = "в понедельник в 10:00 утвердить финальную тему",
-            title = "Утвердить финальную тему на кафедре",
-            simplifiedSteps = listOf(
-                "Взять подписанное заявление",
-                "Зайти в кабинет 402"
-            ),
-            currentSimplifyIndex = 0,
-            aiHint = "Критический дедлайн по курсовой.",
-            categoryBadge = "🔥 Жесткий дедлайн",
-            estimatedMinutes = 10,
-            shelf = ShelfType.SIMPLE_STEPS,
-            energyLevel = EnergyLevel.FIVE_MIN,
-            isCompleted = false,
-            skippedCount = 0,
-            lastShownAt = 0L,
-            createdAt = System.currentTimeMillis() - 86400000L,
-            aiDraftType = "Шаблон заявления",
-            aiDraftContent = "«Прошу утвердить тему курсовой работы: Разработка интеллектуального таск-ассистента на Android.»",
-            scheduledDateMillis = getDayTimestamp(3, 10, 0),
-            scheduledTimeText = "10:00"
+            createdAt = System.currentTimeMillis() - 86400000L * 4,
+            aiDraftType = "Справка",
+            aiDraftContent = "ГОСТ 7.0.5-2008: Фамилия И.О. Название книги. — Город: Издательство, Год. — 000 с.",
+            scheduledDateMillis = null,
+            scheduledTimeText = null,
+            contextTag = "pc"
         )
     )
 }

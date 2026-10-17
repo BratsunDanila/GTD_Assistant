@@ -27,6 +27,9 @@ class ShelvesViewModel @Inject constructor(
     private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
+    private val _selectedContext = MutableStateFlow("all")
+    val selectedContext: StateFlow<String> = _selectedContext.asStateFlow()
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -34,12 +37,15 @@ class ShelvesViewModel @Inject constructor(
     val isSearchActive: StateFlow<Boolean> = _isSearchActive.asStateFlow()
 
     val simpleSteps: StateFlow<List<TaskItem>> = repository.getTasksByShelf(ShelfType.SIMPLE_STEPS)
-        .combine(_searchQuery) { tasks, query ->
-            filterTasks(tasks, query)
-        }
+        .combine(_selectedContext) { tasks, ctx -> filterByContext(tasks, ctx) }
+        .combine(_searchQuery) { tasks, query -> filterTasks(tasks, query) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val bigThings: StateFlow<List<ProjectWithFirstStep>> = repository.getProjectsWithFirstStep()
+        .combine(_selectedContext) { projects, ctx ->
+            if (ctx == "all") projects
+            else projects.filter { it.firstUncompletedStep?.contextTag == ctx }
+        }
         .combine(_searchQuery) { projects, query ->
             if (query.isBlank()) {
                 projects
@@ -54,22 +60,29 @@ class ShelvesViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val waiting: StateFlow<List<TaskItem>> = repository.getTasksByShelf(ShelfType.WAITING)
-        .combine(_searchQuery) { tasks, query ->
-            filterTasks(tasks, query)
-        }
+        .combine(_selectedContext) { tasks, ctx -> filterByContext(tasks, ctx) }
+        .combine(_searchQuery) { tasks, query -> filterTasks(tasks, query) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val someday: StateFlow<List<TaskItem>> = repository.getTasksByShelf(ShelfType.SOMEDAY)
-        .combine(_searchQuery) { tasks, query ->
-            filterTasks(tasks, query)
-        }
+        .combine(_selectedContext) { tasks, ctx -> filterByContext(tasks, ctx) }
+        .combine(_searchQuery) { tasks, query -> filterTasks(tasks, query) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val reference: StateFlow<List<TaskItem>> = repository.getTasksByShelf(ShelfType.REFERENCE)
+        .combine(_selectedContext) { tasks, ctx -> filterByContext(tasks, ctx) }
+        .combine(_searchQuery) { tasks, query -> filterTasks(tasks, query) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val themePalette: StateFlow<ThemePalette> = preferencesManager.themePaletteFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemePalette.SAGE)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemePalette.LAVENDER)
 
     val isDarkMode: StateFlow<Boolean?> = preferencesManager.isDarkModeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun setContext(ctx: String) {
+        _selectedContext.value = ctx
+    }
 
     fun onTaskComplete(taskId: String) {
         viewModelScope.launch {
@@ -98,6 +111,11 @@ class ShelvesViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesManager.setDarkMode(isDark)
         }
+    }
+
+    private fun filterByContext(tasks: List<TaskItem>, ctx: String): List<TaskItem> {
+        if (ctx == "all") return tasks
+        return tasks.filter { it.contextTag == ctx }
     }
 
     private fun filterTasks(tasks: List<TaskItem>, query: String): List<TaskItem> {

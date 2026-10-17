@@ -25,4 +25,6 @@ interface SbrosRepository {
     fun getScheduledTasks(): Flow<List<TaskItem>>
     fun getTasksForDate(startOfDay: Long, endOfDay: Long): Flow<List<TaskItem>>
     suspend fun updateTaskSchedule(taskId: String, dateMillis: Long?, timeText: String?)
+    fun getQuickWinTask(): Flow<TaskItem?>
 }
+
