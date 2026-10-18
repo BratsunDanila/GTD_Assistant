@@ -15,16 +15,33 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.sbros.app.domain.model.TaskDifficulty
+import com.sbros.app.domain.model.toEntity
+
 @Singleton
 class SbrosRepositoryImpl @Inject constructor(
     private val taskDao: TaskDao,
     private val projectDao: ProjectDao
 ) : SbrosRepository {
 
-    override fun getFocusTasksByEnergy(energyLevel: EnergyLevel): Flow<List<TaskItem>> {
-        return taskDao.getFocusTasksByEnergy(energyLevel).map { entities ->
+    override fun getAllTasks(): Flow<List<TaskItem>> {
+        return taskDao.getAllTasks().map { entities ->
             entities.map { it.toDomain() }
         }
+    }
+
+    override fun getFocusTasksByDifficulty(difficulty: TaskDifficulty): Flow<List<TaskItem>> {
+        return taskDao.getFocusTasksByDifficulty(difficulty).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
+    override fun getFocusTasksByEnergy(energyLevel: EnergyLevel): Flow<List<TaskItem>> {
+        return getFocusTasksByDifficulty(energyLevel)
+    }
+
+    override suspend fun updateTask(task: TaskItem) {
+        taskDao.updateTask(task.toEntity())
     }
 
     override fun getTasksByShelf(shelf: ShelfType): Flow<List<TaskItem>> {

@@ -2,8 +2,8 @@ package com.sbros.app.data.local
 
 import com.sbros.app.data.local.entity.ProjectEntity
 import com.sbros.app.data.local.entity.TaskEntity
-import com.sbros.app.domain.model.EnergyLevel
 import com.sbros.app.domain.model.ShelfType
+import com.sbros.app.domain.model.TaskDifficulty
 import java.util.Calendar
 
 object SeedData {
@@ -13,16 +13,6 @@ object SeedData {
         cal.set(Calendar.YEAR, year)
         cal.set(Calendar.MONTH, month)
         cal.set(Calendar.DAY_OF_MONTH, day)
-        cal.set(Calendar.HOUR_OF_DAY, hour)
-        cal.set(Calendar.MINUTE, minute)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        return cal.timeInMillis
-    }
-
-    private fun getRelativeTimestamp(offsetDays: Int, hour: Int, minute: Int): Long {
-        val cal = Calendar.getInstance()
-        cal.add(Calendar.DAY_OF_YEAR, offsetDays)
         cal.set(Calendar.HOUR_OF_DAY, hour)
         cal.set(Calendar.MINUTE, minute)
         cal.set(Calendar.SECOND, 0)
@@ -44,12 +34,12 @@ object SeedData {
     )
 
     val initialTasks = listOf(
-        // 1. Механика (MECHANICAL) — Заказ батареек
+        // 1. Просто (EASY) — Заказ аккумуляторов
         TaskEntity(
             id = "task-mech-batteries-buy",
             projectId = null,
             orderInProject = 0,
-            originalQuote = "Из речи: «...не забыть купить аккумуляторы АА для камеры...»",
+            originalQuote = "Очищено из речи: «...короче надо не забыть купить аккумуляторы АА...»",
             title = "Заказать аккумуляторы АА на маркетплейсе",
             simplifiedSteps = listOf(
                 "Открыть маркетплейс и вбить «Аккумуляторы АА Ni-MH 4 шт»",
@@ -57,10 +47,10 @@ object SeedData {
             ),
             currentSimplifyIndex = 0,
             aiHint = "ИИ отделил это от мыслей про камеру в простую покупку.",
-            categoryBadge = "Бытовое • Покупки",
+            categoryBadge = "Покупки и заказы • Просто",
             estimatedMinutes = 3,
             shelf = ShelfType.SIMPLE_STEPS,
-            energyLevel = EnergyLevel.MECHANICAL,
+            difficulty = TaskDifficulty.EASY,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 1000L,
@@ -69,99 +59,94 @@ object SeedData {
             aiDraftContent = "Поиск: Ni-MH AA 2100-2500 mAh (низкий саморазряд LSD, держат привод объектива без просадки напряжения).",
             scheduledDateMillis = getCalTimestamp(2026, Calendar.OCTOBER, 17, 19, 30),
             scheduledTimeText = "19:30",
-            contextTag = "out"
+            contextTag = "out",
+            contextCategory = "Покупки и заказы",
+            substeps = emptyList(),
+            aiSuggestedSteps = listOf(
+                "Открыть поиск маркетплейса и вбить «Аккумуляторы АА Ni-MH»",
+                "Выбрать упаковку на 4 шт от 2000 mAh",
+                "Оформить доставку в ближайший ПВЗ"
+            ),
+            aiAdvice = "Бери Ni-MH с низким саморазрядом (LSD) — они лучше держат ток."
         ),
 
-        // 2. Механика (MECHANICAL) — Зарядка батареек
+        // 2. Просто (EASY) — Староста
         TaskEntity(
-            id = "task-mech-batteries-charge",
+            id = "task-easy-telegram-topic",
             projectId = null,
             orderInProject = 0,
-            originalQuote = "Из речи: «...поставить старые батарейки заряжаться...»",
-            title = "Поставить старые аккумуляторы в зарядник",
+            originalQuote = "Очищено из речи: «...блин еще старосте тему скинуть надо...»",
+            title = "Отправить старосте утвержденную тему работы в Telegram",
             simplifiedSteps = listOf(
-                "Достать зарядное устройство из ящика стола",
-                "Положить аккумуляторы рядом с розеткой"
+                "Скопировать точное название темы из заметок",
+                "Отправить сообщение старосте в личку"
             ),
             currentSimplifyIndex = 0,
-            aiHint = "Легкое физическое действие, чтобы переключиться.",
-            categoryBadge = "Дом • Механика",
+            aiHint = "Быстрое дело на 1-2 минуты, чтобы не висело в голове.",
+            categoryBadge = "Учеба и вуз • Просто",
             estimatedMinutes = 2,
             shelf = ShelfType.SIMPLE_STEPS,
-            energyLevel = EnergyLevel.MECHANICAL,
+            difficulty = TaskDifficulty.EASY,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 2000L,
             createdAt = System.currentTimeMillis() - 3600000L * 2,
-            aiDraftType = "Совет ИИ",
-            aiDraftContent = "Совет: проверь, чтобы оба аккумулятора были из одной серии перед зарядкой.",
-            scheduledDateMillis = null,
-            scheduledTimeText = null,
-            contextTag = "home"
-        ),
-
-        // 3. Механика (MECHANICAL) — Быстрый хвост до 2 минут (Quick Win)
-        TaskEntity(
-            id = "task-quick-win-telegram",
-            projectId = null,
-            orderInProject = 0,
-            originalQuote = "Из речи: «...старосте надо тему работы скинуть...»",
-            title = "Отправить старосте тему работы в ТГ",
-            simplifiedSteps = listOf(
-                "Открыть диалог со старостой",
-                "Вставить готовую заготовку темы"
-            ),
-            currentSimplifyIndex = 0,
-            aiHint = "Дело до 2 минут — закрой сразу, чтобы не висело в голове.",
-            categoryBadge = "Учеба • Быстрое",
-            estimatedMinutes = 1,
-            shelf = ShelfType.SIMPLE_STEPS,
-            energyLevel = EnergyLevel.MECHANICAL,
-            isCompleted = false,
-            skippedCount = 0,
-            lastShownAt = 500L,
-            createdAt = System.currentTimeMillis() - 3600000L * 4,
             aiDraftType = "Черновик сообщения",
             aiDraftContent = "«Привет! Запиши мою тему курсовой: Разработка мобильного GTD-ассистента со свайпами и голосовым вводом»",
-            scheduledDateMillis = getCalTimestamp(2026, Calendar.OCTOBER, 15, 18, 0),
-            scheduledTimeText = "18:00",
-            contextTag = "phone"
+            scheduledDateMillis = null,
+            scheduledTimeText = null,
+            contextTag = "phone",
+            contextCategory = "Учеба и вуз",
+            substeps = emptyList(),
+            aiSuggestedSteps = listOf(
+                "Скопировать точное название темы из заметок",
+                "Отправить сообщение старосте в личку"
+            ),
+            aiAdvice = "Шаблон: «Привет! Запиши мою тему: Разработка мобильного GTD-ассистента»"
         ),
 
-        // 4. Один шаг (SINGLE_STEP) — Схема Room
+        // 3. Средне (MEDIUM) — Схема Room
         TaskEntity(
-            id = "task-step-sbros-db",
+            id = "task-medium-room-db",
             projectId = "project-sbros",
             orderInProject = 2,
-            originalQuote = "Из речи: «...проверить схему Room для сохранения задач...»",
-            title = "Проверить поля TaskEntity в Room Database",
+            originalQuote = "Очищено из речи: «...надо в приложении базу данных поправить под контексты...»",
+            title = "Настроить схему Room Database для хранения контекстов",
             simplifiedSteps = listOf(
-                "Открыть файл Entities.kt в Android Studio",
-                "Сверить список полей с README"
+                "Добавить поля difficulty и contextCategory в TaskEntity",
+                "Обновить DAO-запросы фильтрации"
             ),
             currentSimplifyIndex = 0,
-            aiHint = "Понятный шаг разработки на 10-15 минут.",
-            categoryBadge = "Приложение Сброс • Шаг 2/4",
+            aiHint = "Понятный шаг разработки на 15 минут.",
+            categoryBadge = "Разработка и код • Средне",
             estimatedMinutes = 15,
             shelf = ShelfType.BIG_THINGS,
-            energyLevel = EnergyLevel.SINGLE_STEP,
+            difficulty = TaskDifficulty.MEDIUM,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 3000L,
             createdAt = System.currentTimeMillis() - 3600000L * 5,
             aiDraftType = "Схема Room",
-            aiDraftContent = "@Entity(tableName = \"tasks\")\ndata class TaskEntity(@PrimaryKey val id: String, val title: String, val shelf: String)",
-            scheduledDateMillis = getCalTimestamp(2026, Calendar.OCTOBER, 20, 11, 0),
-            scheduledTimeText = "11:00",
-            contextTag = "pc"
+            aiDraftContent = "Храни шаги декомпозиции в связанной таблице или через TypeConverter.",
+            scheduledDateMillis = null,
+            scheduledTimeText = null,
+            contextTag = "pc",
+            contextCategory = "Разработка и код",
+            substeps = emptyList(),
+            aiSuggestedSteps = listOf(
+                "Добавить поля difficulty и contextCategory в TaskEntity",
+                "Создать таблицу SubtaskEntity для хранения шагов декомпозиции",
+                "Обновить DAO-запросы фильтрации"
+            ),
+            aiAdvice = "Храни шаги декомпозиции в связанной таблице или через TypeConverter."
         ),
 
-        // 5. Поток (FLOW) — Курсовая: Введение
+        // 4. Сложно (HARD) — Курсовая: Введение
         TaskEntity(
-            id = "task-flow-coursework-intro",
+            id = "task-hard-coursework-intro",
             projectId = "project-coursework",
             orderInProject = 1,
-            originalQuote = "Из речи: «...надо хотя бы введение к курсачу родить...»",
+            originalQuote = "Очищено из речи: «...вообще не знаю когда садиться за первую главу курсача...»",
             title = "Написать черновик введения (3 абзаца)",
             simplifiedSteps = listOf(
                 "Набросать 3 коротких тезиса своими словами",
@@ -169,10 +154,10 @@ object SeedData {
             ),
             currentSimplifyIndex = 0,
             aiHint = "ИИ спрятал остальные главы, оставив только черновик на 20 минут.",
-            categoryBadge = "Курсовая работа • Шаг 1/5",
+            categoryBadge = "Учеба и вуз • Сложно",
             estimatedMinutes = 20,
             shelf = ShelfType.BIG_THINGS,
-            energyLevel = EnergyLevel.FLOW,
+            difficulty = TaskDifficulty.HARD,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 4000L,
@@ -181,11 +166,19 @@ object SeedData {
             aiDraftContent = "План введения:\n1. Проблема когнитивного перегруза в сложных GTD-системах.\n2. Голосовой сбор мыслей (Mind Sweep).\n3. Декомпозиция задач с помощью LLM.",
             scheduledDateMillis = getCalTimestamp(2026, Calendar.OCTOBER, 17, 14, 0),
             scheduledTimeText = "14:00",
-            contextTag = "pc"
+            contextTag = "pc",
+            contextCategory = "Учеба и вуз",
+            substeps = emptyList(),
+            aiSuggestedSteps = listOf(
+                "Составить оглавление из 3 подразделов первой главы",
+                "Написать раздел 1.1: Обзор методологии GTD и существующих решений",
+                "Написать раздел 1.2: Постановка задачи голосовой обработки через LLM"
+            ),
+            aiAdvice = "Начни с раздела 1.1 — там можно опереться на базовую схему Дэвида Аллена."
         ),
 
         TaskEntity(
-            id = "task-flow-coursework-outline",
+            id = "task-hard-coursework-outline",
             projectId = "project-coursework",
             orderInProject = 2,
             originalQuote = "Из речи: «...составить содержание и список глав...»",
@@ -199,7 +192,7 @@ object SeedData {
             categoryBadge = "Курсовая работа • Шаг 2/5",
             estimatedMinutes = 15,
             shelf = ShelfType.BIG_THINGS,
-            energyLevel = EnergyLevel.FLOW,
+            difficulty = TaskDifficulty.HARD,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 0L,
@@ -208,10 +201,109 @@ object SeedData {
             aiDraftContent = "Глава 1. Теоретические основы...\nГлава 2. Анализ и проектирование...\nГлава 3. Практическая реализация...",
             scheduledDateMillis = null,
             scheduledTimeText = null,
-            contextTag = "pc"
+            contextTag = "pc",
+            contextCategory = "Учеба и вуз",
+            substeps = emptyList(),
+            aiSuggestedSteps = listOf(
+                "Выписать 3 основных раздела",
+                "Сверить с требованиями кафедры"
+            ),
+            aiAdvice = "Держись структуры из методических указаний."
         ),
 
-        // 6. Жду ответа (WAITING) — Научрук
+        // Календарь: 14 Октября (1 задача)
+        TaskEntity(
+            id = "task-cal-lab-report",
+            projectId = null,
+            orderInProject = 0,
+            originalQuote = "Назначено в календаре",
+            title = "Сдать отчет по лабораторной",
+            simplifiedSteps = listOf("Прикрепить PDF в личный кабинет"),
+            currentSimplifyIndex = 0,
+            aiHint = "Дедлайн сдачи лабораторной работы.",
+            categoryBadge = "Учеба и вуз • Средне",
+            estimatedMinutes = 10,
+            shelf = ShelfType.SIMPLE_STEPS,
+            difficulty = TaskDifficulty.MEDIUM,
+            isCompleted = false,
+            skippedCount = 0,
+            lastShownAt = 0L,
+            createdAt = System.currentTimeMillis() - 86400000L * 3,
+            scheduledDateMillis = getCalTimestamp(2026, Calendar.OCTOBER, 14, 18, 0),
+            scheduledTimeText = "18:00",
+            contextTag = "pc",
+            contextCategory = "Учеба и вуз"
+        ),
+
+        // Календарь: 22 Октября (3 задачи)
+        TaskEntity(
+            id = "task-cal-demo-proto",
+            projectId = null,
+            orderInProject = 0,
+            originalQuote = "Назначено в календаре",
+            title = "Показать прототип приложения",
+            simplifiedSteps = listOf("Собрать APK и подготовить слайды"),
+            currentSimplifyIndex = 0,
+            aiHint = "Демонстрация рабочего прототипа на встрече.",
+            categoryBadge = "Разработка и код • Средне",
+            estimatedMinutes = 30,
+            shelf = ShelfType.SIMPLE_STEPS,
+            difficulty = TaskDifficulty.MEDIUM,
+            isCompleted = false,
+            skippedCount = 0,
+            lastShownAt = 0L,
+            createdAt = System.currentTimeMillis() - 86400000L * 2,
+            scheduledDateMillis = getCalTimestamp(2026, Calendar.OCTOBER, 22, 10, 0),
+            scheduledTimeText = "10:00",
+            contextTag = "pc",
+            contextCategory = "Разработка и код"
+        ),
+        TaskEntity(
+            id = "task-cal-exam-modeling",
+            projectId = null,
+            orderInProject = 0,
+            originalQuote = "Назначено в календаре",
+            title = "Зачет по моделированию",
+            simplifiedSteps = listOf("Повторить формулы и билеты"),
+            currentSimplifyIndex = 0,
+            aiHint = "Зачетная неделя.",
+            categoryBadge = "Учеба и вуз • Сложно",
+            estimatedMinutes = 60,
+            shelf = ShelfType.SIMPLE_STEPS,
+            difficulty = TaskDifficulty.HARD,
+            isCompleted = false,
+            skippedCount = 0,
+            lastShownAt = 0L,
+            createdAt = System.currentTimeMillis() - 86400000L * 2,
+            scheduledDateMillis = getCalTimestamp(2026, Calendar.OCTOBER, 22, 15, 0),
+            scheduledTimeText = "15:00",
+            contextTag = "pc",
+            contextCategory = "Учеба и вуз"
+        ),
+        TaskEntity(
+            id = "task-cal-buy-coffee",
+            projectId = null,
+            orderInProject = 0,
+            originalQuote = "Назначено в календаре",
+            title = "Купить кофе и фильтр-пакеты",
+            simplifiedSteps = listOf("Зайти в кофейню рядом с домом"),
+            currentSimplifyIndex = 0,
+            aiHint = "Пополнение запасов кофе.",
+            categoryBadge = "Покупки и заказы • Просто",
+            estimatedMinutes = 5,
+            shelf = ShelfType.SIMPLE_STEPS,
+            difficulty = TaskDifficulty.EASY,
+            isCompleted = false,
+            skippedCount = 0,
+            lastShownAt = 0L,
+            createdAt = System.currentTimeMillis() - 86400000L * 2,
+            scheduledDateMillis = getCalTimestamp(2026, Calendar.OCTOBER, 22, 20, 0),
+            scheduledTimeText = "20:00",
+            contextTag = "out",
+            contextCategory = "Покупки и заказы"
+        ),
+
+        // Полка: Жду ответа (WAITING) — Научрук
         TaskEntity(
             id = "task-waiting-supervisor",
             projectId = null,
@@ -224,10 +316,10 @@ object SeedData {
             ),
             currentSimplifyIndex = 0,
             aiHint = "Дело на паузе, от тебя действий сейчас не требуется.",
-            categoryBadge = "Курсовая работа",
+            categoryBadge = "Учеба и вуз • Ожидание",
             estimatedMinutes = 0,
             shelf = ShelfType.WAITING,
-            energyLevel = EnergyLevel.MECHANICAL,
+            difficulty = TaskDifficulty.EASY,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 0L,
@@ -236,10 +328,13 @@ object SeedData {
             aiDraftContent = "«Здравствуйте! Подскажите, пожалуйста, удалось ли посмотреть черновик первой главы?»",
             scheduledDateMillis = null,
             scheduledTimeText = null,
-            contextTag = "phone"
+            contextTag = "phone",
+            contextCategory = "Учеба и вуз",
+            substeps = emptyList(),
+            aiAdvice = "Напомни в четверг, если научрук не ответит до вечера."
         ),
 
-        // 7. На потом и идеи (SOMEDAY) — Фильм
+        // Полка: На потом и идеи (SOMEDAY) — Фильм
         TaskEntity(
             id = "task-someday-movie",
             projectId = null,
@@ -252,10 +347,10 @@ object SeedData {
             ),
             currentSimplifyIndex = 0,
             aiHint = "Приятная идея без дедлайнов и обязательств.",
-            categoryBadge = "Отдых",
+            categoryBadge = "Дом и быт • Отдых",
             estimatedMinutes = 0,
             shelf = ShelfType.SOMEDAY,
-            energyLevel = EnergyLevel.MECHANICAL,
+            difficulty = TaskDifficulty.EASY,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 0L,
@@ -264,10 +359,13 @@ object SeedData {
             aiDraftContent = "Хороший отдых восстанавливает силы. Выбери вечер субботы.",
             scheduledDateMillis = null,
             scheduledTimeText = null,
-            contextTag = "home"
+            contextTag = "home",
+            contextCategory = "Дом и быт",
+            substeps = emptyList(),
+            aiAdvice = "Хороший отдых восстанавливает силы."
         ),
 
-        // 8. Справочник и заметки (REFERENCE) — ГОСТ
+        // Полка: Справочник и заметки (REFERENCE) — ГОСТ
         TaskEntity(
             id = "task-ref-gost",
             projectId = null,
@@ -280,10 +378,10 @@ object SeedData {
             ),
             currentSimplifyIndex = 0,
             aiHint = "Справочная заметка для быстрой сверки перед сдачей.",
-            categoryBadge = "Курсовая работа",
+            categoryBadge = "Учеба и вуз • Справка",
             estimatedMinutes = 0,
             shelf = ShelfType.REFERENCE,
-            energyLevel = EnergyLevel.SINGLE_STEP,
+            difficulty = TaskDifficulty.MEDIUM,
             isCompleted = false,
             skippedCount = 0,
             lastShownAt = 0L,
@@ -292,7 +390,10 @@ object SeedData {
             aiDraftContent = "ГОСТ 7.0.5-2008: Фамилия И.О. Название книги. — Город: Издательство, Год. — 000 с.",
             scheduledDateMillis = null,
             scheduledTimeText = null,
-            contextTag = "pc"
+            contextTag = "pc",
+            contextCategory = "Учеба и вуз",
+            substeps = emptyList(),
+            aiAdvice = "ГОСТ 7.0.5-2008 регламентирует библиографические ссылки."
         )
     )
 }

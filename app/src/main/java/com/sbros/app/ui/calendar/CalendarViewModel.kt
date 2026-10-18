@@ -23,6 +23,7 @@ data class CalendarGridCell(
     val dayNumber: Int?, // null for empty offset cells
     val dateMillis: Long?,
     val hasTasks: Boolean = false,
+    val tasksCount: Int = 0,
     val isSelected: Boolean = false
 )
 
@@ -118,16 +119,18 @@ class CalendarViewModel @Inject constructor(
             calClone.set(Calendar.MINUTE, 0)
             calClone.set(Calendar.SECOND, 0)
 
-            val hasTasks = tasks.any { task ->
+            val dayTasks = tasks.filter { task ->
                 val taskDate = task.scheduledDateMillis
                 taskDate != null && taskDate in dayStart..dayEnd && !task.isCompleted
             }
+            val count = dayTasks.size
 
             cells.add(
                 CalendarGridCell(
                     dayNumber = d,
                     dateMillis = dayStart,
-                    hasTasks = hasTasks,
+                    hasTasks = count > 0,
+                    tasksCount = count,
                     isSelected = (d == selectedDay)
                 )
             )

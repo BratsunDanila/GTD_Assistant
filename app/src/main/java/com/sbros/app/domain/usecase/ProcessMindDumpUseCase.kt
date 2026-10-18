@@ -53,10 +53,14 @@ class ProcessMindDumpUseCase @Inject constructor(
                 ShelfType.SIMPLE_STEPS
             }
 
-            val energyLevel = try {
-                EnergyLevel.valueOf(item.energyLevel)
+            val difficulty = try {
+                com.sbros.app.domain.model.TaskDifficulty.valueOf(item.difficulty)
             } catch (_: Exception) {
-                EnergyLevel.MECHANICAL
+                try {
+                    com.sbros.app.domain.model.TaskDifficulty.valueOf(item.energyLevel)
+                } catch (_: Exception) {
+                    com.sbros.app.domain.model.TaskDifficulty.EASY
+                }
             }
 
             val task = TaskEntity(
@@ -71,7 +75,7 @@ class ProcessMindDumpUseCase @Inject constructor(
                 categoryBadge = item.categoryBadge,
                 estimatedMinutes = item.estimatedMinutes,
                 shelf = shelfType,
-                energyLevel = energyLevel,
+                difficulty = difficulty,
                 isCompleted = false,
                 skippedCount = 0,
                 lastShownAt = 0L,
@@ -80,7 +84,11 @@ class ProcessMindDumpUseCase @Inject constructor(
                 aiDraftContent = item.aiDraftContent,
                 scheduledDateMillis = item.scheduledDateMillis,
                 scheduledTimeText = item.scheduledTimeText,
-                contextTag = item.contextTag
+                contextTag = item.contextTag,
+                contextCategory = item.contextCategory,
+                substeps = emptyList(), // Честная логика ИИ: без автоматического дробления
+                aiSuggestedSteps = item.aiSuggestedSteps,
+                aiAdvice = item.aiAdvice
             )
 
             tasksToInsert.add(task)

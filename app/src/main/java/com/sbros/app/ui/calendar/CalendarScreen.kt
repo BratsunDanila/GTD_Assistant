@@ -188,6 +188,7 @@ fun CalendarScreen(
                                 dayNumber = cell.dayNumber,
                                 isSelected = cell.isSelected,
                                 hasTasks = cell.hasTasks,
+                                tasksCount = cell.tasksCount,
                                 onClick = { viewModel.selectDay(cell.dayNumber) },
                                 modifier = Modifier.weight(1f)
                             )
@@ -300,13 +301,14 @@ private fun DayCellView(
     dayNumber: Int,
     isSelected: Boolean,
     hasTasks: Boolean,
+    tasksCount: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.90f else 1f,
+        targetValue = if (isPressed) 0.90f else if (isSelected) 1.05f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -314,44 +316,68 @@ private fun DayCellView(
         label = "dayScale"
     )
 
+    val backgroundColor = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        hasTasks -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.surface
+    }
+
+    val contentColor = when {
+        isSelected -> MaterialTheme.colorScheme.onPrimary
+        hasTasks -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+
+    val border = when {
+        isSelected -> BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+        hasTasks -> BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+        else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    }
+
     Surface(
         onClick = onClick,
         interactionSource = interactionSource,
-        shape = RoundedCornerShape(10.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            1.dp,
-            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-        ),
+        shape = RoundedCornerShape(12.dp),
+        color = backgroundColor,
+        border = border,
         modifier = modifier
             .aspectRatio(1f)
             .scale(scale)
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 2.dp)
         ) {
             Text(
                 text = "$dayNumber",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 11.5.sp
+                    fontWeight = if (isSelected || hasTasks) FontWeight.Bold else FontWeight.SemiBold,
+                    fontSize = 12.sp
                 ),
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                color = contentColor
             )
 
-            if (hasTasks) {
-                Box(
+            if (tasksCount > 0) {
+                val dotsToShow = minOf(tasksCount, 4)
+                val dotColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+                Row(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 3.dp)
-                        .size(4.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isSelected) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.primary
+                        .padding(bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(dotsToShow) {
+                        Box(
+                            modifier = Modifier
+                                .size(4.5.dp)
+                                .clip(CircleShape)
+                                .background(dotColor)
                         )
-                )
+                    }
+                }
             }
         }
     }

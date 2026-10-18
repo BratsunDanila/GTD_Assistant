@@ -6,6 +6,8 @@ import com.sbros.app.data.local.PreferencesManager
 import com.sbros.app.domain.model.EditableParsedItem
 import com.sbros.app.domain.model.EnergyLevel
 import com.sbros.app.domain.model.ShelfType
+import com.sbros.app.domain.model.SubstepItem
+import com.sbros.app.domain.model.TaskDifficulty
 import com.sbros.app.domain.model.TaskItem
 import com.sbros.app.domain.model.ThemePalette
 import com.sbros.app.domain.usecase.CompleteTaskUseCase
@@ -126,14 +128,15 @@ class NowViewModel @Inject constructor(
         }
     }
 
-    private val _selectedEnergy = MutableStateFlow(EnergyLevel.MECHANICAL)
-    val selectedEnergy: StateFlow<EnergyLevel> = _selectedEnergy.asStateFlow()
+    private val _selectedDifficulty = MutableStateFlow(TaskDifficulty.EASY)
+    val selectedDifficulty: StateFlow<TaskDifficulty> = _selectedDifficulty.asStateFlow()
+    val selectedEnergy: StateFlow<TaskDifficulty> = _selectedDifficulty.asStateFlow()
 
     private val _showCompletionFeedback = MutableStateFlow(false)
     val showCompletionFeedback: StateFlow<Boolean> = _showCompletionFeedback.asStateFlow()
 
-    val currentTasksList: StateFlow<List<TaskItem>> = _selectedEnergy
-        .flatMapLatest { energy -> getFocusTaskUseCase(energy) }
+    val currentTasksList: StateFlow<List<TaskItem>> = _selectedDifficulty
+        .flatMapLatest { diff -> getFocusTaskUseCase(diff) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -201,9 +204,63 @@ class NowViewModel @Inject constructor(
         }
     }
 
-    fun selectEnergyLevel(level: EnergyLevel) {
-        if (_selectedEnergy.value != level) {
-            _selectedEnergy.value = level
+    fun selectDifficulty(diff: TaskDifficulty) {
+        if (_selectedDifficulty.value != diff) {
+            _selectedDifficulty.value = diff
+        }
+    }
+
+    fun selectEnergyLevel(level: TaskDifficulty) {
+        selectDifficulty(level)
+    }
+
+    fun generateAiSubsteps(taskId: String) {
+        viewModelScope.launch {
+            val task = repository.getTaskById(taskId) ?: return@launch
+            val stepsToUse = if (task.aiSuggestedSteps.isNotEmpty()) {
+                task.aiSuggestedSteps
+            } else {
+                listOf(
+                    "Подготовить материалы и рабочее место для старта",
+                    "Выполнить ключевое действие по задаче",
+                    "Проверить результат и зафиксировать итог"
+                )
+            }
+            val newSubsteps = stepsToUse.map { SubstepItem(text = it, isDone = false) }
+            val updatedTask = task.copy(substeps = newSubsteps)
+            repository.updateTask(updatedTask)
+        }
+    }
+
+    fun addManualSubstep(taskId: String, text: String) {
+        if (text.isBlank()) return
+        viewModelScope.launch {
+            val task = repository.getTaskById(taskId) ?: return@launch
+            val newSubsteps = task.substeps + SubstepItem(text = text.trim(), isDone = false)
+            repository.updateTask(task.copy(substeps = newSubsteps))
+        }
+    }
+
+    fun removeSubstep(taskId: String, index: Int) {
+        viewModelScope.launch {
+            val task = repository.getTaskById(taskId) ?: return@launch
+            if (index in task.substeps.indices) {
+                val newSubsteps = task.substeps.toMutableList().apply { removeAt(index) }
+                repository.updateTask(task.copy(substeps = newSubsteps))
+            }
+        }
+    }
+
+    fun toggleSubstep(taskId: String, index: Int) {
+        viewModelScope.launch {
+            val task = repository.getTaskById(taskId) ?: return@launch
+            if (index in task.substeps.indices) {
+                val current = task.substeps[index]
+                val newSubsteps = task.substeps.toMutableList().apply {
+                    set(index, current.copy(isDone = !current.isDone))
+                }
+                repository.updateTask(task.copy(substeps = newSubsteps))
+            }
         }
     }
 

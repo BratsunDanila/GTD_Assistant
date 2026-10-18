@@ -14,7 +14,7 @@ data class TaskItem(
     val categoryBadge: String = "",
     val estimatedMinutes: Int = 5,
     val shelf: ShelfType = ShelfType.SIMPLE_STEPS,
-    val energyLevel: EnergyLevel = EnergyLevel.MECHANICAL,
+    val difficulty: TaskDifficulty = TaskDifficulty.EASY,
     val isCompleted: Boolean = false,
     val skippedCount: Int = 0,
     val lastShownAt: Long = 0L,
@@ -23,8 +23,14 @@ data class TaskItem(
     val aiDraftContent: String = "",
     val scheduledDateMillis: Long? = null,
     val scheduledTimeText: String? = null,
-    val contextTag: String = "home"
+    val contextTag: String = "home",
+    val contextCategory: String = "Дом и быт",
+    val substeps: List<SubstepItem> = emptyList(),
+    val aiSuggestedSteps: List<String> = emptyList(),
+    val aiAdvice: String = ""
 ) {
+    val energyLevel: TaskDifficulty get() = difficulty
+
     /**
      * Возвращает текущий текст шага с учетом нажатий кнопки «Проще».
      * 0 -> исходный title
@@ -51,7 +57,7 @@ fun TaskEntity.toDomain(): TaskItem = TaskItem(
     categoryBadge = categoryBadge,
     estimatedMinutes = estimatedMinutes,
     shelf = shelf,
-    energyLevel = energyLevel,
+    difficulty = difficulty,
     isCompleted = isCompleted,
     skippedCount = skippedCount,
     lastShownAt = lastShownAt,
@@ -60,7 +66,11 @@ fun TaskEntity.toDomain(): TaskItem = TaskItem(
     aiDraftContent = aiDraftContent,
     scheduledDateMillis = scheduledDateMillis,
     scheduledTimeText = scheduledTimeText,
-    contextTag = contextTag
+    contextTag = contextTag,
+    contextCategory = contextCategory,
+    substeps = substeps,
+    aiSuggestedSteps = aiSuggestedSteps,
+    aiAdvice = aiAdvice
 )
 
 fun TaskItem.toEntity(): TaskEntity = TaskEntity(
@@ -75,7 +85,7 @@ fun TaskItem.toEntity(): TaskEntity = TaskEntity(
     categoryBadge = categoryBadge,
     estimatedMinutes = estimatedMinutes,
     shelf = shelf,
-    energyLevel = energyLevel,
+    difficulty = difficulty,
     isCompleted = isCompleted,
     skippedCount = skippedCount,
     lastShownAt = lastShownAt,
@@ -84,5 +94,9 @@ fun TaskItem.toEntity(): TaskEntity = TaskEntity(
     aiDraftContent = aiDraftContent,
     scheduledDateMillis = scheduledDateMillis,
     scheduledTimeText = scheduledTimeText,
-    contextTag = contextTag
+    contextTag = contextTag,
+    contextCategory = contextCategory,
+    substeps = substeps,
+    aiSuggestedSteps = aiSuggestedSteps,
+    aiAdvice = aiAdvice
 )

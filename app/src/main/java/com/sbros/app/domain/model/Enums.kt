@@ -8,11 +8,19 @@ enum class ShelfType {
     REFERENCE     // Справочник и заметки (справочная информация и чеклисты)
 }
 
-enum class EnergyLevel {
-    MECHANICAL,  // Механика (рутина на автомате, иконка Bolt)
-    SINGLE_STEP, // Один шаг (понятное дело на 10-15 мин, иконка AdsClick)
-    FLOW         // Поток (глубокая концентрация, иконка Psychology)
+enum class TaskDifficulty(val label: String) {
+    EASY("Просто"),
+    MEDIUM("Средне"),
+    HARD("Сложно");
+
+    companion object {
+        val MECHANICAL get() = EASY
+        val SINGLE_STEP get() = MEDIUM
+        val FLOW get() = HARD
+    }
 }
+
+typealias EnergyLevel = TaskDifficulty
 
 enum class ThemePalette {
     LAVENDER, // Лаванда
@@ -20,3 +28,4 @@ enum class ThemePalette {
     CLAY,     // Терракота
     OCEAN     // Океан
 }
+

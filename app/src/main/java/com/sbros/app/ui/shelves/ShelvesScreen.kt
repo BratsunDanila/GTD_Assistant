@@ -8,7 +8,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,19 +26,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccountTree
-import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Checklist
-import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.HourglassTop
-import androidx.compose.material.icons.rounded.LaptopMac
+import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.ShoppingBag
-import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -45,9 +44,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,21 +54,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sbros.app.domain.model.TaskItem
 
 /**
- * Экран «Полки GTD» v5.0 (по спецификации sbros_production_m3.html):
- * - Фильтр контекстов GTD: Все, Ноутбук, Телефон, Дом, Покупки
- * - 5 раскрывающихся аккордеонов полок:
- *   1. Простые шаги (Checklist)
- *   2. Большие дела (AccountTree)
- *   3. Жду ответа (HourglassTop)
- *   4. На потом и идеи (Bookmark)
- *   5. Справочник и заметки (Description)
- * - Круглый чекбокс выполнения задач прямо на полках
+ * Экран «Полки» v8.0 (по спецификации sbros_v8.html):
+ * - Верхняя панель фильтрации по сложности: Все, Просто, Средне, Сложно
+ * - Смысловые аккордеоны полок по контекстам ИИ (Учеба и вуз, Покупки и заказы, Разработка и код, Дом и быт)
+ * - Счетчик задач в бейдже
+ * - Чекбоксы выполнения прямо в списке с зачеркиванием текста
+ * - Бейдж уровня сложности задачи (Просто, Средне, Сложно)
  * - Строго НОЛЬ ЭМОДЗИ!
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,18 +75,18 @@ fun ShelvesScreen(
     modifier: Modifier = Modifier,
     viewModel: ShelvesViewModel = hiltViewModel()
 ) {
-    val simpleSteps by viewModel.simpleSteps.collectAsState()
-    val bigThings by viewModel.bigThings.collectAsState()
-    val waiting by viewModel.waiting.collectAsState()
-    val someday by viewModel.someday.collectAsState()
-    val reference by viewModel.reference.collectAsState()
-    val selectedContext by viewModel.selectedContext.collectAsState()
+    val selectedDifficulty by viewModel.selectedDifficulty.collectAsState()
+    val contextShelves by viewModel.contextShelves.collectAsState()
 
-    var openSimple by remember { mutableStateOf(true) }
-    var openProjects by remember { mutableStateOf(true) }
-    var openWaiting by remember { mutableStateOf(false) }
-    var openSomeday by remember { mutableStateOf(false) }
-    var openReference by remember { mutableStateOf(false) }
+    // Состояние развернутых аккордеонов (по умолчанию открыты, кроме "Дом и быт")
+    val openState = remember {
+        mutableStateMapOf<String, Boolean>().apply {
+            put("Учеба и вуз", true)
+            put("Покупки и заказы", true)
+            put("Разработка и код", true)
+            put("Дом и быт", false)
+        }
+    }
 
     Column(
         modifier = modifier
@@ -104,7 +100,7 @@ fun ShelvesScreen(
         // Заголовок экрана
         Column {
             Text(
-                text = "Полки GTD",
+                text = "Полки по контекстам",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 24.sp,
@@ -114,7 +110,7 @@ fun ShelvesScreen(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "Вся система в порядке и без давления",
+                text = "ИИ сгруппировал задачи по сферам жизни",
                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -122,161 +118,78 @@ fun ShelvesScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Горизонтальный фильтр контекстов GTD
+        // 1. Верхний ряд фильтрации по сложности: Все / Просто / Средне / Сложно
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            ContextPill(
+            DifficultyChip(
                 label = "Все",
-                icon = null,
-                isSelected = selectedContext == "all",
-                onClick = { viewModel.setContext("all") }
+                selected = selectedDifficulty == "all",
+                onClick = { viewModel.setDifficultyFilter("all") },
+                modifier = Modifier.weight(1f)
             )
-            ContextPill(
-                label = "Ноутбук",
-                icon = Icons.Rounded.LaptopMac,
-                isSelected = selectedContext == "pc",
-                onClick = { viewModel.setContext("pc") }
+            DifficultyChip(
+                label = "Просто",
+                selected = selectedDifficulty == "EASY",
+                onClick = { viewModel.setDifficultyFilter("EASY") },
+                modifier = Modifier.weight(1f)
             )
-            ContextPill(
-                label = "Телефон",
-                icon = Icons.Rounded.Smartphone,
-                isSelected = selectedContext == "phone",
-                onClick = { viewModel.setContext("phone") }
+            DifficultyChip(
+                label = "Средне",
+                selected = selectedDifficulty == "MEDIUM",
+                onClick = { viewModel.setDifficultyFilter("MEDIUM") },
+                modifier = Modifier.weight(1f)
             )
-            ContextPill(
-                label = "Дом",
-                icon = Icons.Rounded.Home,
-                isSelected = selectedContext == "home",
-                onClick = { viewModel.setContext("home") }
-            )
-            ContextPill(
-                label = "Покупки",
-                icon = Icons.Rounded.ShoppingBag,
-                isSelected = selectedContext == "out",
-                onClick = { viewModel.setContext("out") }
+            DifficultyChip(
+                label = "Сложно",
+                selected = selectedDifficulty == "HARD",
+                onClick = { viewModel.setDifficultyFilter("HARD") },
+                modifier = Modifier.weight(1f)
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Полка 1: Простые шаги
-        ShelfAccordion(
-            title = "Простые шаги",
-            icon = Icons.Rounded.Checklist,
-            count = simpleSteps.size,
-            isOpen = openSimple,
-            onToggle = { openSimple = !openSimple }
-        ) {
-            if (simpleSteps.isEmpty()) {
-                EmptyShelfNotice()
-            } else {
-                simpleSteps.forEach { task ->
-                    ShelfTaskRow(
-                        title = task.title,
-                        isDone = task.isCompleted,
-                        onClick = { viewModel.onTaskComplete(task.id) }
+        // 2. Список контекстных полок (аккордеонов)
+        if (contextShelves.isEmpty()) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(modifier = Modifier.padding(16.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Нет задач выбранной сложности",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.5.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-        }
+        } else {
+            contextShelves.forEach { (category, tasks) ->
+                val isOpen = openState[category] ?: true
+                val icon = getContextIcon(category)
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Полка 2: Большие дела (Проекты)
-        val projectTasks = bigThings.mapNotNull { it.firstUncompletedStep }
-        ShelfAccordion(
-            title = "Большие дела (Проекты)",
-            icon = Icons.Rounded.AccountTree,
-            count = bigThings.size,
-            isOpen = openProjects,
-            onToggle = { openProjects = !openProjects }
-        ) {
-            if (bigThings.isEmpty()) {
-                EmptyShelfNotice()
-            } else {
-                bigThings.forEach { proj ->
-                    val stepTitle = proj.firstUncompletedStep?.title ?: proj.projectTitle
-                    val display = "${proj.projectTitle}: $stepTitle"
-                    ShelfTaskRow(
-                        title = display,
-                        isDone = proj.firstUncompletedStep == null || proj.firstUncompletedStep.isCompleted,
-                        onClick = {
-                            proj.firstUncompletedStep?.let { viewModel.onTaskComplete(it.id) }
+                ContextShelfAccordion(
+                    title = category,
+                    icon = icon,
+                    count = tasks.size,
+                    isOpen = isOpen,
+                    onToggle = { openState[category] = !isOpen },
+                    modifier = Modifier.padding(bottom = 9.dp)
+                ) {
+                    if (tasks.isEmpty()) {
+                        EmptyShelfNotice()
+                    } else {
+                        tasks.forEach { task ->
+                            ContextTaskRow(
+                                task = task,
+                                onClick = { viewModel.toggleTaskCompletion(task) }
+                            )
                         }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Полка 3: Жду ответа
-        ShelfAccordion(
-            title = "Жду ответа",
-            icon = Icons.Rounded.HourglassTop,
-            count = waiting.size,
-            isOpen = openWaiting,
-            onToggle = { openWaiting = !openWaiting }
-        ) {
-            if (waiting.isEmpty()) {
-                EmptyShelfNotice()
-            } else {
-                waiting.forEach { task ->
-                    ShelfTaskRow(
-                        title = task.title,
-                        isDone = task.isCompleted,
-                        onClick = { viewModel.onTaskComplete(task.id) }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Полка 4: На потом и идеи
-        ShelfAccordion(
-            title = "На потом и идеи",
-            icon = Icons.Rounded.Bookmark,
-            count = someday.size,
-            isOpen = openSomeday,
-            onToggle = { openSomeday = !openSomeday }
-        ) {
-            if (someday.isEmpty()) {
-                EmptyShelfNotice()
-            } else {
-                someday.forEach { task ->
-                    ShelfTaskRow(
-                        title = task.title,
-                        isDone = task.isCompleted,
-                        onClick = { viewModel.onTaskComplete(task.id) }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Полка 5: Справочник и заметки
-        ShelfAccordion(
-            title = "Справочник и заметки",
-            icon = Icons.Rounded.Description,
-            count = reference.size,
-            isOpen = openReference,
-            onToggle = { openReference = !openReference }
-        ) {
-            if (reference.isEmpty()) {
-                EmptyShelfNotice()
-            } else {
-                reference.forEach { task ->
-                    ShelfTaskRow(
-                        title = task.title,
-                        isDone = task.isCompleted,
-                        onClick = { viewModel.onTaskComplete(task.id) }
-                    )
+                    }
                 }
             }
         }
@@ -285,75 +198,74 @@ fun ShelvesScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ContextPill(
+private fun DifficultyChip(
     label: String,
-    icon: ImageVector?,
-    isSelected: Boolean,
-    onClick: () -> Unit
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
+    val interactionSource = remember { MutableInteractionSource() }
+
+    FilterChip(
+        selected = selected,
         onClick = onClick,
-        shape = RoundedCornerShape(99.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            1.dp,
-            if (isSelected) Color.Transparent else MaterialTheme.colorScheme.outlineVariant
-        ),
-        modifier = Modifier.height(30.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(13.dp)
-                )
-            }
+        interactionSource = interactionSource,
+        label = {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                    fontSize = 11.sp
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = 11.5.sp,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold
                 ),
-                color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                maxLines = 1,
+                softWrap = false
             )
-        }
-    }
+        },
+        shape = RoundedCornerShape(12.dp),
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (selected) Color.Transparent else MaterialTheme.colorScheme.outlineVariant
+        ),
+        modifier = modifier.height(36.dp)
+    )
 }
 
 @Composable
-private fun ShelfAccordion(
+private fun ContextShelfAccordion(
     title: String,
     icon: ImageVector,
     count: Int,
     isOpen: Boolean,
     onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onToggle() }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                    .padding(horizontal = 14.dp, vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
                     Icon(
                         imageVector = icon,
@@ -367,7 +279,9 @@ private fun ShelfAccordion(
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.5.sp
                         ),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -408,8 +322,9 @@ private fun ShelfAccordion(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                        .padding(horizontal = 14.dp)
+                        .padding(bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
                     content()
                 }
@@ -419,9 +334,8 @@ private fun ShelfAccordion(
 }
 
 @Composable
-private fun ShelfTaskRow(
-    title: String,
-    isDone: Boolean,
+private fun ContextTaskRow(
+    task: TaskItem,
     onClick: () -> Unit
 ) {
     Surface(
@@ -433,37 +347,39 @@ private fun ShelfTaskRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 7.dp),
+                .padding(horizontal = 9.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Box(
-                modifier = Modifier
-                    .size(16.dp)
-                    .clip(CircleShape)
-                    .background(if (isDone) Color(0xFF1E6B43) else Color.Transparent)
-                    .then(
-                        if (!isDone) Modifier.clip(CircleShape) else Modifier
-                    ),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp)
             ) {
-                if (isDone) {
-                    Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(11.dp)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape)
-                            .background(Color.Transparent)
-                            .then(
-                                Modifier.clip(CircleShape)
-                            )
-                    ) {
+                // Круглый чекбокс выполнения
+                Box(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(if (task.isCompleted) Color(0xFF1E6B43) else Color.Transparent)
+                        .then(
+                            if (!task.isCompleted) {
+                                Modifier.background(
+                                    Color.Transparent,
+                                    CircleShape
+                                )
+                            } else Modifier
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (task.isCompleted) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(11.dp)
+                        )
+                    } else {
                         Surface(
                             modifier = Modifier.fillMaxSize(),
                             shape = CircleShape,
@@ -472,18 +388,38 @@ private fun ShelfTaskRow(
                         ) {}
                     }
                 }
+
+                Text(
+                    text = task.title,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
+                    color = if (task.isCompleted) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Medium
-                ),
-                textDecoration = if (isDone) TextDecoration.LineThrough else TextDecoration.None,
-                color = if (isDone) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                else MaterialTheme.colorScheme.onSurface
-            )
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Бейдж уровня сложности
+            Surface(
+                shape = RoundedCornerShape(99.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
+            ) {
+                Text(
+                    text = task.difficulty.label,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                )
+            }
         }
     }
 }
@@ -491,9 +427,19 @@ private fun ShelfTaskRow(
 @Composable
 private fun EmptyShelfNotice() {
     Text(
-        text = "Нет задач для выбранного контекста",
+        text = "Нет задач в этом контексте",
         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(vertical = 4.dp)
     )
+}
+
+private fun getContextIcon(category: String): ImageVector {
+    return when {
+        category.contains("учеб", ignoreCase = true) || category.contains("вуз", ignoreCase = true) -> Icons.Rounded.School
+        category.contains("покуп", ignoreCase = true) || category.contains("заказ", ignoreCase = true) -> Icons.Rounded.ShoppingBag
+        category.contains("разработ", ignoreCase = true) || category.contains("код", ignoreCase = true) -> Icons.Rounded.Code
+        category.contains("дом", ignoreCase = true) || category.contains("быт", ignoreCase = true) -> Icons.Rounded.Home
+        else -> Icons.AutoMirrored.Rounded.Label
+    }
 }

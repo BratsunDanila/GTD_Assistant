@@ -39,14 +39,18 @@ import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FactCheck
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicOff
+import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -84,6 +88,7 @@ import androidx.core.content.ContextCompat
 import com.sbros.app.domain.model.EditableParsedItem
 import com.sbros.app.domain.model.EnergyLevel
 import com.sbros.app.domain.model.ShelfType
+import com.sbros.app.domain.model.TaskDifficulty
 import com.sbros.app.ui.capture.components.GentlePromptCard
 import com.sbros.app.ui.capture.components.LiveTranscriptBox
 import com.sbros.app.ui.capture.components.VoiceVisualizer
@@ -511,7 +516,7 @@ fun CaptureBottomSheet(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "ИИ разложил на ${parsedItems.size} полки",
+                                    text = "Очищено и разложено",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 18.sp
@@ -520,29 +525,51 @@ fun CaptureBottomSheet(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Нажми на текст или полку, если хочешь подправить",
+                                    text = "Тапни на контекст или сложность, чтобы поменять",
                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
 
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer
+                            Button(
+                                onClick = {
+                                    parsedItems = parsedItems + EditableParsedItem(
+                                        title = "",
+                                        contextCategory = "Учеба и вуз",
+                                        difficulty = TaskDifficulty.EASY
+                                    )
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                ),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(30.dp)
                             ) {
                                 Text(
-                                    text = "Готово",
+                                    text = "+ Задача",
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.SemiBold,
                                         fontSize = 11.5.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
                                 )
                             }
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
+
+                        val availableContexts = listOf(
+                            "Учеба и вуз",
+                            "Покупки и заказы",
+                            "Разработка и код",
+                            "Дом и быт"
+                        )
+                        val availableDiffs = listOf(
+                            TaskDifficulty.EASY,
+                            TaskDifficulty.MEDIUM,
+                            TaskDifficulty.HARD
+                        )
 
                         // Список карточек разбора
                         Column(
@@ -562,35 +589,18 @@ fun CaptureBottomSheet(
                                             .padding(14.dp),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        // Верхний ряд карточки: переключатель полки + переключатель энергии + кнопка удаления
+                                        // Верхний ряд карточки: переключатель контекста + переключатель сложности + кнопка удаления
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            val shelfIcon: androidx.compose.ui.graphics.vector.ImageVector
-                                            val shelfLabel: String
-                                            when (item.shelf) {
-                                                ShelfType.SIMPLE_STEPS -> {
-                                                    shelfIcon = Icons.Rounded.Checklist
-                                                    shelfLabel = "Простые шаги"
-                                                }
-                                                ShelfType.BIG_THINGS -> {
-                                                    shelfIcon = Icons.Rounded.AccountTree
-                                                    shelfLabel = "Большие дела"
-                                                }
-                                                ShelfType.WAITING -> {
-                                                    shelfIcon = Icons.Rounded.HourglassTop
-                                                    shelfLabel = "Жду ответа"
-                                                }
-                                                ShelfType.SOMEDAY -> {
-                                                    shelfIcon = Icons.Rounded.Bookmark
-                                                    shelfLabel = "На потом"
-                                                }
-                                                ShelfType.REFERENCE -> {
-                                                    shelfIcon = Icons.Rounded.Description
-                                                    shelfLabel = "Справочник"
-                                                }
+                                            val contextIcon = when {
+                                                item.contextCategory.contains("учеб", ignoreCase = true) || item.contextCategory.contains("вуз", ignoreCase = true) -> Icons.Rounded.School
+                                                item.contextCategory.contains("покуп", ignoreCase = true) || item.contextCategory.contains("заказ", ignoreCase = true) -> Icons.Rounded.ShoppingBag
+                                                item.contextCategory.contains("разработ", ignoreCase = true) || item.contextCategory.contains("код", ignoreCase = true) -> Icons.Rounded.Code
+                                                item.contextCategory.contains("дом", ignoreCase = true) || item.contextCategory.contains("быт", ignoreCase = true) -> Icons.Rounded.Home
+                                                else -> Icons.Rounded.Folder
                                             }
 
                                             Surface(
@@ -599,16 +609,10 @@ fun CaptureBottomSheet(
                                                 modifier = Modifier
                                                     .clip(CircleShape)
                                                     .clickable {
-                                                        val shelves = listOf(
-                                                            ShelfType.SIMPLE_STEPS,
-                                                            ShelfType.BIG_THINGS,
-                                                            ShelfType.WAITING,
-                                                            ShelfType.SOMEDAY,
-                                                            ShelfType.REFERENCE
-                                                        )
-                                                        val nextShelf = shelves[(shelves.indexOf(item.shelf) + 1) % shelves.size]
+                                                        val currentIndex = availableContexts.indexOf(item.contextCategory).takeIf { it >= 0 } ?: 0
+                                                        val nextContext = availableContexts[(currentIndex + 1) % availableContexts.size]
                                                         parsedItems = parsedItems.toMutableList().also {
-                                                            it[index] = item.copy(shelf = nextShelf)
+                                                            it[index] = item.copy(contextCategory = nextContext)
                                                         }
                                                     }
                                             ) {
@@ -618,13 +622,13 @@ fun CaptureBottomSheet(
                                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.Rounded.Folder,
+                                                        imageVector = contextIcon,
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                                         modifier = Modifier.size(13.dp)
                                                     )
                                                     Text(
-                                                        text = shelfLabel,
+                                                        text = item.contextCategory.ifBlank { "Контекст" },
                                                         style = MaterialTheme.typography.labelSmall.copy(
                                                             fontWeight = FontWeight.Bold,
                                                             fontSize = 11.5.sp
@@ -634,36 +638,26 @@ fun CaptureBottomSheet(
                                                 }
                                             }
 
-                                            // Правый блок: энергия + удаление
+                                            // Правый блок: сложность + удаление
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
-                                                val energyLabel = when (item.energyLevel) {
-                                                    EnergyLevel.MECHANICAL -> "Механика"
-                                                    EnergyLevel.SINGLE_STEP -> "Один шаг"
-                                                    EnergyLevel.FLOW -> "Поток"
-                                                }
-
                                                 Surface(
                                                     shape = CircleShape,
                                                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                                     modifier = Modifier
                                                         .clip(CircleShape)
                                                         .clickable {
-                                                            val energies = listOf(
-                                                                EnergyLevel.MECHANICAL,
-                                                                EnergyLevel.SINGLE_STEP,
-                                                                EnergyLevel.FLOW
-                                                            )
-                                                            val nextEnergy = energies[(energies.indexOf(item.energyLevel) + 1) % energies.size]
+                                                            val currentDiffIdx = availableDiffs.indexOf(item.difficulty).takeIf { it >= 0 } ?: 0
+                                                            val nextDiff = availableDiffs[(currentDiffIdx + 1) % availableDiffs.size]
                                                             parsedItems = parsedItems.toMutableList().also {
-                                                                it[index] = item.copy(energyLevel = nextEnergy)
+                                                                it[index] = item.copy(difficulty = nextDiff)
                                                             }
                                                         }
                                                 ) {
                                                     Text(
-                                                        text = energyLabel,
+                                                        text = item.difficulty.label,
                                                         style = MaterialTheme.typography.labelSmall.copy(
                                                             fontWeight = FontWeight.SemiBold,
                                                             fontSize = 11.sp

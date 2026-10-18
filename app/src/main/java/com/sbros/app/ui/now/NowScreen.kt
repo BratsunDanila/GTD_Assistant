@@ -25,13 +25,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AdsClick
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Help
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Style
-import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,8 +60,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sbros.app.domain.model.EnergyLevel
+import com.sbros.app.domain.model.TaskDifficulty
 import com.sbros.app.ui.now.components.CaptureDock
+import com.sbros.app.ui.now.components.DecomposeBottomSheet
 import com.sbros.app.ui.now.components.FocusTaskCard
 import com.sbros.app.ui.now.components.OnDemandAiPanel
 import com.sbros.app.ui.theme.ThemeSelectionDialog
@@ -77,11 +77,10 @@ fun NowScreen(
     onHelpClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val selectedEnergy by viewModel.selectedEnergy.collectAsState()
+    val selectedDifficulty by viewModel.selectedDifficulty.collectAsState()
     val focusTask by viewModel.currentFocusTask.collectAsState()
     val currentTasksList by viewModel.currentTasksList.collectAsState()
     val showFeedback by viewModel.showCompletionFeedback.collectAsState()
-    val quickWinTask by viewModel.quickWinTask.collectAsState()
     val userName by viewModel.userName.collectAsState()
     val palette by viewModel.themePalette.collectAsState()
     val isDarkPref by viewModel.isDarkMode.collectAsState()
@@ -92,6 +91,7 @@ fun NowScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showDecomposeSheet by remember { mutableStateOf(false) }
 
     if (showThemeDialog) {
         ThemeSelectionDialog(
@@ -100,6 +100,17 @@ fun NowScreen(
             onPaletteSelect = { viewModel.setThemePalette(it) },
             onDarkModeToggle = { viewModel.setDarkMode(it) },
             onDismissRequest = { showThemeDialog = false }
+        )
+    }
+
+    if (showDecomposeSheet && focusTask != null) {
+        DecomposeBottomSheet(
+            task = focusTask!!,
+            onDismissRequest = { showDecomposeSheet = false },
+            onAiDecompose = { viewModel.generateAiSubsteps(focusTask!!.id) },
+            onAddManualStep = { viewModel.addManualSubstep(focusTask!!.id, it) },
+            onRemoveStep = { viewModel.removeSubstep(focusTask!!.id, it) },
+            onToggleStep = { viewModel.toggleSubstep(focusTask!!.id, it) }
         )
     }
 
@@ -189,31 +200,31 @@ fun NowScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 2. Шкала когнитивной нагрузки (3 чипа)
+                // 2. Градация сложности (3 чипа)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     CognitiveLoadChip(
-                        selected = selectedEnergy == EnergyLevel.MECHANICAL,
-                        onClick = { viewModel.selectEnergyLevel(EnergyLevel.MECHANICAL) },
-                        label = "Механика",
+                        selected = selectedDifficulty == TaskDifficulty.EASY,
+                        onClick = { viewModel.selectDifficulty(TaskDifficulty.EASY) },
+                        label = "Просто",
                         icon = Icons.Rounded.Bolt,
                         modifier = Modifier.weight(1f)
                     )
 
                     CognitiveLoadChip(
-                        selected = selectedEnergy == EnergyLevel.SINGLE_STEP,
-                        onClick = { viewModel.selectEnergyLevel(EnergyLevel.SINGLE_STEP) },
-                        label = "Один шаг",
-                        icon = Icons.Rounded.AdsClick,
+                        selected = selectedDifficulty == TaskDifficulty.MEDIUM,
+                        onClick = { viewModel.selectDifficulty(TaskDifficulty.MEDIUM) },
+                        label = "Средне",
+                        icon = Icons.Rounded.Speed,
                         modifier = Modifier.weight(1f)
                     )
 
                     CognitiveLoadChip(
-                        selected = selectedEnergy == EnergyLevel.FLOW,
-                        onClick = { viewModel.selectEnergyLevel(EnergyLevel.FLOW) },
-                        label = "Поток",
+                        selected = selectedDifficulty == TaskDifficulty.HARD,
+                        onClick = { viewModel.selectDifficulty(TaskDifficulty.HARD) },
+                        label = "Сложно",
                         icon = Icons.Rounded.Psychology,
                         modifier = Modifier.weight(1f)
                     )
@@ -289,9 +300,13 @@ fun NowScreen(
                 FocusTaskCard(
                     task = focusTask,
                     showCompletionFeedback = showFeedback,
-                    onSimplify = { viewModel.onSimplifyClicked() },
                     onSkip = { viewModel.onSkipClicked() },
                     onComplete = { viewModel.onCompleteClicked() },
+                    onDecomposeClick = { showDecomposeSheet = true },
+                    onToggleSubstep = { index ->
+                        focusTask?.let { viewModel.toggleSubstep(it.id, index) }
+                    },
+                    onSimplify = { viewModel.onSimplifyClicked() },
                     remainingInStack = remainingInStack
                 )
 
@@ -303,86 +318,6 @@ fun NowScreen(
                         aiDraftType = focusTask?.aiDraftType.orEmpty()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                // 6. Компактная плашка «Правило 2 минут»
-                if (quickWinTask != null) {
-                    val quickTask = quickWinTask!!
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                modifier = Modifier.weight(1f),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Timer,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "ДЕЛО ДО 2 МИНУТ (СДЕЛАТЬ СРАЗУ)",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
-                                        ),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = quickTask.title,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        ),
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            Button(
-                                onClick = {
-                                    viewModel.completeQuickWinTask(quickTask.id)
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("Быстрое дело закрыто")
-                                    }
-                                },
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFC3F2D6),
-                                    contentColor = Color(0xFF1E6B43)
-                                ),
-                                contentPadding = PaddingValues(horizontal = 11.dp, vertical = 6.dp),
-                                modifier = Modifier.height(32.dp)
-                            ) {
-                                Text(
-                                    text = "Готово",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.5.sp
-                                    )
-                                )
-                            }
-                        }
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))

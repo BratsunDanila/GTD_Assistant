@@ -3,6 +3,8 @@ package com.sbros.app.data.local
 import androidx.room.TypeConverter
 import com.sbros.app.domain.model.EnergyLevel
 import com.sbros.app.domain.model.ShelfType
+import com.sbros.app.domain.model.SubstepItem
+import com.sbros.app.domain.model.TaskDifficulty
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -25,6 +27,21 @@ class Converters {
     }
 
     @TypeConverter
+    fun fromSubstepList(value: List<SubstepItem>?): String {
+        return json.encodeToString(value ?: emptyList())
+    }
+
+    @TypeConverter
+    fun toSubstepList(value: String?): List<SubstepItem> {
+        if (value.isNullOrBlank()) return emptyList()
+        return try {
+            json.decodeFromString<List<SubstepItem>>(value)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    @TypeConverter
     fun fromShelfType(value: ShelfType?): String = (value ?: ShelfType.SIMPLE_STEPS).name
 
     @TypeConverter
@@ -38,20 +55,24 @@ class Converters {
     }
 
     @TypeConverter
-    fun fromEnergyLevel(value: EnergyLevel?): String = (value ?: EnergyLevel.MECHANICAL).name
+    fun fromDifficulty(value: TaskDifficulty?): String = (value ?: TaskDifficulty.EASY).name
 
     @TypeConverter
-    fun toEnergyLevel(value: String?): EnergyLevel {
-        if (value.isNullOrBlank()) return EnergyLevel.MECHANICAL
+    fun toDifficulty(value: String?): TaskDifficulty {
+        if (value.isNullOrBlank()) return TaskDifficulty.EASY
         return when (value.uppercase()) {
-            "EASY", "MECHANICAL" -> EnergyLevel.MECHANICAL
-            "FIVE_MIN", "SINGLE_STEP" -> EnergyLevel.SINGLE_STEP
-            "FOCUS", "FLOW" -> EnergyLevel.FLOW
+            "EASY", "MECHANICAL" -> TaskDifficulty.EASY
+            "MEDIUM", "FIVE_MIN", "SINGLE_STEP" -> TaskDifficulty.MEDIUM
+            "HARD", "FOCUS", "FLOW" -> TaskDifficulty.HARD
             else -> try {
-                EnergyLevel.valueOf(value)
+                TaskDifficulty.valueOf(value.uppercase())
             } catch (e: Exception) {
-                EnergyLevel.MECHANICAL
+                TaskDifficulty.EASY
             }
         }
     }
+
+    fun fromEnergyLevel(value: EnergyLevel?): String = fromDifficulty(value)
+
+    fun toEnergyLevel(value: String?): EnergyLevel = toDifficulty(value)
 }

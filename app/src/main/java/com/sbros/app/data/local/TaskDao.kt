@@ -9,15 +9,30 @@ import androidx.room.Update
 import com.sbros.app.data.local.entity.TaskEntity
 import com.sbros.app.domain.model.EnergyLevel
 import com.sbros.app.domain.model.ShelfType
+import com.sbros.app.domain.model.TaskDifficulty
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TaskDao {
 
+    @Query("SELECT * FROM tasks ORDER BY isCompleted ASC, createdAt DESC")
+    fun getAllTasks(): Flow<List<TaskEntity>>
+
     @Query(
         """
         SELECT * FROM tasks 
-        WHERE energyLevel = :energyLevel 
+        WHERE difficulty = :difficulty 
+          AND isCompleted = 0 
+          AND shelf IN ('SIMPLE_STEPS', 'BIG_THINGS') 
+        ORDER BY lastShownAt ASC
+        """
+    )
+    fun getFocusTasksByDifficulty(difficulty: TaskDifficulty): Flow<List<TaskEntity>>
+
+    @Query(
+        """
+        SELECT * FROM tasks 
+        WHERE difficulty = :energyLevel 
           AND isCompleted = 0 
           AND shelf IN ('SIMPLE_STEPS', 'BIG_THINGS') 
         ORDER BY lastShownAt ASC

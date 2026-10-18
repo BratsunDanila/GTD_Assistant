@@ -30,11 +30,35 @@ class ShelvesViewModel @Inject constructor(
     private val _selectedContext = MutableStateFlow("all")
     val selectedContext: StateFlow<String> = _selectedContext.asStateFlow()
 
+    private val _selectedDifficulty = MutableStateFlow("all")
+    val selectedDifficulty: StateFlow<String> = _selectedDifficulty.asStateFlow()
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     private val _isSearchActive = MutableStateFlow(false)
     val isSearchActive: StateFlow<Boolean> = _isSearchActive.asStateFlow()
+
+    val contextShelves: StateFlow<Map<String, List<TaskItem>>> = repository.getAllTasks()
+        .combine(_selectedDifficulty) { tasks, diff ->
+            val filtered = if (diff == "all") {
+                tasks
+            } else {
+                tasks.filter { it.difficulty.name.equals(diff, ignoreCase = true) }
+            }
+            filtered.groupBy { it.contextCategory.ifBlank { "Дом и быт" } }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    fun setDifficultyFilter(diff: String) {
+        _selectedDifficulty.value = diff
+    }
+
+    fun toggleTaskCompletion(task: TaskItem) {
+        viewModelScope.launch {
+            repository.updateTask(task.copy(isCompleted = !task.isCompleted))
+        }
+    }
 
     val simpleSteps: StateFlow<List<TaskItem>> = repository.getTasksByShelf(ShelfType.SIMPLE_STEPS)
         .combine(_selectedContext) { tasks, ctx -> filterByContext(tasks, ctx) }

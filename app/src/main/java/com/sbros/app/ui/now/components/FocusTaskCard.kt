@@ -31,6 +31,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Label
+import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -40,6 +42,7 @@ import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material.icons.rounded.West
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -83,9 +86,11 @@ import kotlin.math.abs
 fun FocusTaskCard(
     task: TaskItem?,
     showCompletionFeedback: Boolean,
-    onSimplify: () -> Unit,
     onSkip: () -> Unit,
     onComplete: () -> Unit,
+    onDecomposeClick: () -> Unit,
+    onToggleSubstep: (Int) -> Unit = {},
+    onSimplify: () -> Unit = {},
     remainingInStack: Int = 1,
     modifier: Modifier = Modifier
 ) {
@@ -258,7 +263,7 @@ fun FocusTaskCard(
                         Column(
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            // Верхняя строка: папка/проект + время
+                            // Верхняя строка: Контекст + Сложность по sbros_v8.html
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -274,13 +279,13 @@ fun FocusTaskCard(
                                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Rounded.Folder,
+                                            imageVector = Icons.AutoMirrored.Rounded.Label,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(13.dp)
                                         )
                                         Text(
-                                            text = if (task.categoryBadge.isNotBlank()) task.categoryBadge else "Дело",
+                                            text = "Контекст: ${task.contextCategory}",
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1
@@ -288,21 +293,20 @@ fun FocusTaskCard(
                                     }
                                 }
 
-                                if (task.estimatedMinutes > 0) {
-                                    Surface(
-                                        shape = RoundedCornerShape(99.dp),
-                                        color = MaterialTheme.colorScheme.surfaceContainer
-                                    ) {
-                                        Text(
-                                            text = "${task.estimatedMinutes} мин",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                fontFamily = FontFamily.Monospace,
-                                                fontWeight = FontWeight.SemiBold
-                                            ),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                                        )
-                                    }
+                                Surface(
+                                    shape = RoundedCornerShape(99.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainer
+                                ) {
+                                    Text(
+                                        text = task.difficulty.label,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                                    )
                                 }
                             }
 
@@ -352,7 +356,7 @@ fun FocusTaskCard(
                                         modifier = Modifier.size(13.dp)
                                     )
                                     Text(
-                                        text = "Из речи: «${task.originalQuote}»",
+                                        text = task.originalQuote,
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             fontSize = 11.5.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -360,6 +364,62 @@ fun FocusTaskCard(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
+                                }
+                            }
+
+                            // Чеклист подзадач внутри карточки (появляется ТОЛЬКО после декомпозиции)
+                            if (task.substeps.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                                        .padding(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    task.substeps.forEachIndexed { idx, st ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable { onToggleSubstep(idx) }
+                                                .padding(vertical = 4.dp, horizontal = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = if (st.isDone) Color(0xFF1E6B43) else Color.Transparent,
+                                                border = BorderStroke(
+                                                    1.5.dp,
+                                                    if (st.isDone) Color(0xFF1E6B43) else MaterialTheme.colorScheme.primary
+                                                ),
+                                                modifier = Modifier.size(14.dp)
+                                            ) {
+                                                if (st.isDone) {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.Check,
+                                                        contentDescription = null,
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(10.dp)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                text = st.text,
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    textDecoration = if (st.isDone) TextDecoration.LineThrough else null
+                                                ),
+                                                color = if (st.isDone) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                else MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
@@ -372,7 +432,7 @@ fun FocusTaskCard(
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            // Нижний ряд: жесты «← Потом» / «Готово →» + кнопка «1/3»
+                            // Нижний ряд: жесты «← Потом» / «Готово →» + кнопка «Разбить на шаги»
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -443,44 +503,30 @@ fun FocusTaskCard(
                                     }
                                 }
 
-                                // Кнопка «Сделать проще» с AutoFixHigh и счетчиком 1/3
-                                val simplifyTotal = (task.simplifiedSteps.size + 1).coerceAtLeast(1)
-                                val currentStepNumber = (task.currentSimplifyIndex + 1).coerceAtMost(simplifyTotal)
-
-                                val simplifyInteractionSource = remember { MutableInteractionSource() }
-                                val isSimplifyPressed by simplifyInteractionSource.collectIsPressedAsState()
-                                val simplifyScale by animateFloatAsState(
-                                    targetValue = if (isSimplifyPressed) 0.88f else 1f,
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessLow
-                                    ),
-                                    label = "simplifyScale"
-                                )
+                                // Кнопка «Разбить на шаги» (по желанию пользователя: сам или через ИИ)
+                                val doneCount = task.substeps.count { it.isDone }
+                                val totalCount = task.substeps.size
+                                val decompBtnText = if (totalCount > 0) "Шаги ($doneCount/$totalCount)" else "Разбить на шаги"
 
                                 FilledTonalButton(
-                                    onClick = onSimplify,
-                                    interactionSource = simplifyInteractionSource,
+                                    onClick = onDecomposeClick,
                                     shape = RoundedCornerShape(99.dp),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                     colors = ButtonDefaults.filledTonalButtonColors(
                                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                     ),
-                                    modifier = Modifier
-                                        .height(32.dp)
-                                        .scale(simplifyScale)
+                                    modifier = Modifier.height(34.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Rounded.AutoFixHigh,
-                                        contentDescription = "Упростить",
-                                        modifier = Modifier.size(14.dp)
+                                        imageVector = Icons.Rounded.AccountTree,
+                                        contentDescription = "Разбить на шаги",
+                                        modifier = Modifier.size(15.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(5.dp))
                                     Text(
-                                        text = "$currentStepNumber/$simplifyTotal",
+                                        text = decompBtnText,
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            fontFamily = FontFamily.Monospace,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 11.5.sp
                                         )

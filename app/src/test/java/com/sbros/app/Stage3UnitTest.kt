@@ -25,6 +25,19 @@ import org.junit.Test
 class FakeSbrosRepository : SbrosRepository {
     private val tasks = MutableStateFlow(SeedData.initialTasks.map { it.toDomain() })
 
+    override fun getAllTasks(): Flow<List<TaskItem>> = tasks
+
+    override fun getFocusTasksByDifficulty(difficulty: com.sbros.app.domain.model.TaskDifficulty): Flow<List<TaskItem>> {
+        return tasks.map { list ->
+            list.filter { it.difficulty == difficulty && !it.isCompleted && (it.shelf == ShelfType.SIMPLE_STEPS || it.shelf == ShelfType.BIG_THINGS) }
+                .sortedBy { it.lastShownAt }
+        }
+    }
+
+    override suspend fun updateTask(task: TaskItem) {
+        tasks.value = tasks.value.map { if (it.id == task.id) task else it }
+    }
+
     override fun getFocusTasksByEnergy(energyLevel: EnergyLevel): Flow<List<TaskItem>> {
         return tasks.map { list ->
             list.filter { it.energyLevel == energyLevel && !it.isCompleted && (it.shelf == ShelfType.SIMPLE_STEPS || it.shelf == ShelfType.BIG_THINGS) }

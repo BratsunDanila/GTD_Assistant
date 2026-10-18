@@ -59,7 +59,7 @@ class SaveParsedTasksUseCase @Inject constructor(
                 categoryBadge = item.categoryBadge.ifBlank { defaultBadge },
                 estimatedMinutes = item.estimatedMinutes,
                 shelf = item.shelf,
-                energyLevel = item.energyLevel,
+                difficulty = item.difficulty,
                 isCompleted = false,
                 skippedCount = 0,
                 lastShownAt = 0L,
@@ -68,7 +68,11 @@ class SaveParsedTasksUseCase @Inject constructor(
                 aiDraftContent = item.aiDraftContent,
                 scheduledDateMillis = item.scheduledDateMillis,
                 scheduledTimeText = item.scheduledTimeText,
-                contextTag = item.contextTag
+                contextTag = item.contextTag,
+                contextCategory = item.contextCategory,
+                substeps = item.substeps,
+                aiSuggestedSteps = item.aiSuggestedSteps,
+                aiAdvice = item.aiAdvice
             )
             tasksToInsert.add(task)
         }
