@@ -126,11 +126,14 @@ fun DecomposeBottomSheet(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Разбить автоматически с помощью ИИ",
+                    text = "Разбить через ИИ",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.5.sp
-                    )
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false
                 )
             }
 

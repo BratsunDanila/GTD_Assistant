@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="ru" data-palette="lavender" data-mode="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Сброс v9.0 — Иерархия Контекст -> Задача -> Шаги</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0" rel="stylesheet">
+  <style>
+    :root, [data-palette="lavender"][data-mode="light"] {
+      --bg-page: #DFDDEC; --md-surface: #F5F3FB; --md-card: #FFFFFF;
+      --md-low: #ECE9F6; --md-high: #DFDCEF; --md-text: #1B1A24;
+      --md-muted: #5C596B; --md-primary: #554F87; --md-on-primary: #FFFFFF;
+      --md-primary-box: #E0DFFF; --md-on-primary-box: #161044;
+      --md-sec-box: #E3E0F5; --md-ok: #1E6B43; --md-ok-box: #C3F2D6; --md-line: #CFCBE0;
+    }
+    [data-palette="lavender"][data-mode="dark"] {
+      --bg-page: #09090D; --md-surface: #121218; --md-card: #1C1B25;
+      --md-low: #171620; --md-high: #272534; --md-text: #E7E3F0;
+      --md-muted: #9D99AE; --md-primary: #C3C0FF; --md-on-primary: #292457;
+      --md-primary-box: #3F3B6E; --md-on-primary-box: #E0DFFF;
+      --md-sec-box: #333146; --md-ok: #7BDC9F; --md-ok-box: #14492C; --md-line: #343244;
+    }
+    [data-palette="sage"][data-mode="light"] {
+      --bg-page: #DAE3D8; --md-surface: #F2F6F0; --md-card: #FFFFFF;
+      --md-low: #E7EFE4; --md-high: #D8E4D4; --md-text: #171D17;
+      --md-muted: #4E584E; --md-primary: #336746; --md-on-primary: #FFFFFF;
+      --md-primary-box: #B6F0C5; --md-on-primary-box: #00210D;
+      --md-sec-box: #D2E7D4; --md-ok: #1E6B43; --md-ok-box: #C3F2D6; --md-line: #C0CCC0;
+    }
+    [data-palette="clay"][data-mode="light"] {
+      --bg-page: #E8DFD9; --md-surface: #F9F4F0; --md-card: #FFFFFF;
+      --md-low: #F1E8E2; --md-high: #E5D8CF; --md-text: #221A16;
+      --md-muted: #61524A; --md-primary: #8B4A27; --md-on-primary: #FFFFFF;
+      --md-primary-box: #FFDBCA; --md-on-primary-box: #331200;
+      --md-sec-box: #F3DBD0; --md-ok: #1E6B43; --md-ok-box: #C3F2D6; --md-line: #D4C2B7;
+    }
+    [data-palette="ocean"][data-mode="light"] {
+      --bg-page: #DAE4E8; --md-surface: #F2F7FA; --md-card: #FFFFFF;
+      --md-low: #E6EFF4; --md-high: #D6E4EC; --md-text: #151D20;
+      --md-muted: #4B585E; --md-primary: #176678; --md-on-primary: #FFFFFF;
+      --md-primary-box: #B9EAFA; --md-on-primary-box: #001F27;
+      --md-sec-box: #CFE6EE; --md-ok: #1E6B43; --md-ok-box: #C3F2D6; --md-line: #BCCACE;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Onest', -apple-system, sans-serif;
+      background: var(--bg-page); color: var(--md-text);
+      display: flex; flex-direction: column; align-items: center;
+      min-height: 100vh; padding: 14px 12px 36px; transition: background 0.3s ease;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .material-symbols-rounded {
+      font-size: 20px; user-select: none;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    .spring {
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, opacity 0.2s ease;
+      cursor: pointer;
+    }
+    .spring:active { transform: scale(0.94); }
+
+    /* ВЕРХНЯЯ ПАНЕЛЬ СТЕНДА */
+    .studio-bar {
+      display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center;
+      background: var(--md-card); padding: 7px 12px; border-radius: 18px; margin-bottom: 14px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.06); border: 1px solid var(--md-line);
+    }
+    .st-btn {
+      border: none; background: var(--md-low); color: var(--md-muted); font-family: inherit;
+      font-size: 11.5px; font-weight: 600; padding: 6px 11px; border-radius: 10px;
+      display: inline-flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap;
+    }
+    .st-btn.active { background: var(--md-primary); color: var(--md-on-primary); }
+    .swatch { width: 9px; height: 9px; border-radius: 50%; }
+
+    /* КОРПУС ТЕЛЕФОНА */
+    .phone {
+      width: 376px; height: 804px; background: var(--md-surface); border-radius: 50px;
+      border: 8px solid #1B1A20; box-shadow: 0 28px 64px -12px rgba(0,0,0,0.28);
+      position: relative; overflow: hidden; display: flex; flex-direction: column; user-select: none;
+    }
+    .status-bar {
+      height: 38px; padding: 12px 26px 0; display: flex; justify-content: space-between;
+      align-items: center; font-size: 11.5px; font-weight: 600; flex-shrink: 0; z-index: 60;
+    }
+    .view-port { flex: 1; position: relative; overflow: hidden; }
+    .tab-view {
+      position: absolute; inset: 0; padding: 10px 18px 14px; display: flex; flex-direction: column;
+      overflow-y: auto; opacity: 0; transform: translateY(8px); pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .tab-view::-webkit-scrollbar { display: none; }
+    .tab-view.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+    .h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+    .sub { font-size: 12px; color: var(--md-muted); margin-top: 2px; }
+    .icon-circle {
+      width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--md-line);
+      background: var(--md-card); color: var(--md-muted);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ЧИПЫ СЛОЖНОСТИ: ПРОСТО / СРЕДНЕ / СЛОЖНО */
+    .chips-row { display: flex; gap: 6px; margin: 12px 0; }
+    .diff-chip {
+      flex: 1; height: 38px; border-radius: 13px; border: 1px solid var(--md-line);
+      background: var(--md-card); color: var(--md-muted); font-family: inherit;
+      font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 5px;
+      white-space: nowrap;
+    }
+    .diff-chip.active { background: var(--md-sec-box); color: var(--md-text); border-color: transparent; font-weight: 700; }
+
+    /* 1. Верхняя строка над стопкой (БЕЗ текста "Контекст: все дела") */
+    .stack-meta { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 8px; }
+    .badge {
+      font-size: 10.5px; font-weight: 600; padding: 4px 10px; border-radius: 99px;
+      background: var(--md-low); color: var(--md-muted); display: inline-flex; align-items: center; gap: 4px;
+      white-space: nowrap;
+    }
+    .badge-pri { background: var(--md-primary-box); color: var(--md-on-primary-box); font-weight: 700; }
+
+    /* 3D СТОПКА КАРТОЧЕК */
+    .deck-wrap { position: relative; height: 310px; margin-bottom: 12px; }
+    .card-bg-3 {
+      position: absolute; inset: 0; background: var(--md-card); border-radius: 26px;
+      border: 1px solid var(--md-line); opacity: 0.42; transform: scale(0.89) translateY(22px);
+      transition: transform 0.28s ease, opacity 0.25s ease; pointer-events: none;
+    }
+    .card-bg-2 {
+      position: absolute; inset: 0; background: var(--md-card); border-radius: 26px;
+      border: 1px solid var(--md-line); opacity: 0.75; transform: scale(0.945) translateY(11px);
+      transition: transform 0.28s ease, opacity 0.25s ease; pointer-events: none;
+    }
+    .swipe-card {
+      position: absolute; inset: 0; background: var(--md-card); border-radius: 26px;
+      border: 1px solid var(--md-line); padding: 18px; display: flex; flex-direction: column;
+      justify-content: space-between; box-shadow: 0 14px 32px -8px rgba(0,0,0,0.08);
+      cursor: grab; touch-action: pan-y; z-index: 3;
+      transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.22s ease;
+    }
+    .swipe-card:active { cursor: grabbing; }
+
+    /* 5. Пустое состояние, когда все задачи в категории выполнены */
+    .empty-deck-state {
+      position: absolute; inset: 0; background: var(--md-card); border-radius: 26px;
+      border: 1px dashed var(--md-line); padding: 24px; display: none; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; gap: 10px; z-index: 4;
+    }
+    .empty-deck-state.visible { display: flex; animation: fadeUp 0.25s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .stamp {
+      position: absolute; top: 14px; padding: 4px 10px; border-radius: 8px; font-size: 11px;
+      font-weight: 700; display: inline-flex; align-items: center; gap: 4px; opacity: 0; z-index: 6; pointer-events: none;
+    }
+    .stamp.done { left: 14px; background: var(--md-ok-box); color: var(--md-ok); transform: rotate(-6deg); }
+    .stamp.later { right: 14px; background: var(--md-high); color: var(--md-muted); transform: rotate(6deg); }
+
+    .card-title { font-size: 18.5px; font-weight: 700; line-height: 1.3; }
+    .card-origin { font-size: 11px; color: var(--md-muted); margin-top: 5px; display: flex; align-items: center; gap: 4px; }
+
+    /* Чеклист шагов внутри задачи */
+    .substeps-list {
+      margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--md-line);
+      display: flex; flex-direction: column; gap: 5px; max-height: 115px; overflow-y: auto;
+    }
+    .substep-item {
+      display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500;
+      padding: 5px 8px; border-radius: 8px; background: var(--md-surface); cursor: pointer;
+    }
+    .substep-item.done span { text-decoration: line-through; opacity: 0.5; }
+    .mini-chk { width: 14px; height: 14px; border-radius: 4px; border: 1.6px solid var(--md-primary); flex-shrink: 0; }
+    .substep-item.done .mini-chk { background: var(--md-ok); border-color: var(--md-ok); }
+
+    .card-foot {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 10px; border-top: 1px solid var(--md-low);
+    }
+    .decompose-btn {
+      height: 34px; padding: 0 12px; border-radius: 99px; border: none;
+      background: var(--md-primary-box); color: var(--md-on-primary-box);
+      font-family: inherit; font-size: 11.5px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+    }
+
+    /* 6. Кнопка анализа ИИ (всегда доступна на любой задаче) */
+    .ai-ask-btn {
+      width: 100%; height: 40px; border-radius: 14px; border: 1px dashed var(--md-line);
+      background: var(--md-card); color: var(--md-text); font-family: inherit;
+      font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;
+      margin-bottom: 10px; white-space: nowrap;
+    }
+    .ai-panel {
+      max-height: 0; opacity: 0; overflow: hidden;
+      transition: max-height 0.3s ease, opacity 0.22s ease, margin 0.22s ease;
+    }
+    .ai-panel.open { max-height: 130px; opacity: 1; margin-bottom: 10px; }
+    .ai-panel-inner {
+      background: var(--md-card); border-radius: 16px; padding: 10px 12px;
+      border: 1px solid var(--md-primary-box); display: flex; flex-direction: column; gap: 6px;
+    }
+    .ai-draft { font-size: 11px; line-height: 1.4; background: var(--md-surface); padding: 7px 9px; border-radius: 10px; }
+
+    /* Док микрофона */
+    .capture-dock { margin-top: auto; display: flex; gap: 8px; align-items: center; }
+    .voice-fab {
+      flex: 1; height: 56px; border-radius: 18px; border: none;
+      background: var(--md-primary); color: var(--md-on-primary);
+      font-family: inherit; padding: 0 16px; display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 8px 20px -4px rgba(85, 79, 135, 0.32);
+    }
+    .dock-sec-btn {
+      width: 56px; height: 56px; border-radius: 18px; border: 1px solid var(--md-line);
+      background: var(--md-card); color: var(--md-text); display: flex; align-items: center; justify-content: center;
+    }
+
+    /* КАЛЕНДАРЬ С РУЧНЫМ ДОБАВЛЕНИЕМ ЗАДАЧИ НА ДЕНЬ И ВРЕМЯ */
+    .cal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; margin-bottom: 12px; }
+    .dow { font-size: 10px; font-weight: 700; color: var(--md-muted); padding-bottom: 2px; }
+    .day-cell {
+      aspect-ratio: 1; border-radius: 12px; background: var(--md-card); border: 1px solid var(--md-line);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; cursor: pointer; position: relative; padding-bottom: 4px;
+    }
+    .day-cell.empty { background: transparent; border-color: transparent; pointer-events: none; }
+    .day-cell.has-tasks {
+      background: var(--md-primary-box); color: var(--md-on-primary-box);
+      border: 1.5px solid var(--md-primary); font-weight: 700;
+    }
+    .day-cell.selected {
+      background: var(--md-primary); color: var(--md-on-primary); border-color: var(--md-primary);
+      transform: scale(1.05); box-shadow: 0 4px 12px rgba(85, 79, 135, 0.3);
+    }
+    .dots-row { display: flex; gap: 2.5px; position: absolute; bottom: 4px; }
+    .task-dot { width: 4.5px; height: 4.5px; border-radius: 50%; background: var(--md-primary); }
+    .day-cell.selected .task-dot { background: var(--md-on-primary); }
+
+    .cal-events { display: flex; flex-direction: column; gap: 7px; }
+    .cal-ev-card {
+      background: var(--md-card); border-radius: 14px; padding: 10px 12px;
+      border: 1px solid var(--md-line); display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+
+    /* 7. ВКЛАДКА «ПОЛКИ»: КОНТЕКСТ -> ЗАДАЧИ -> ВЛОЖЕННЫЕ ШАГИ */
+    .shelf-acc {
+      background: var(--md-card); border-radius: 18px; border: 1px solid var(--md-line);
+      margin-bottom: 9px; overflow: hidden;
+    }
+    .shelf-head {
+      padding: 13px 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;
+    }
+    .shelf-body {
+      padding: 0 14px 12px; border-top: 1px solid var(--md-low);
+      display: none; flex-direction: column; gap: 8px; padding-top: 10px;
+    }
+    .shelf-acc.open .shelf-body { display: flex; }
+    .shelf-task-block {
+      background: var(--md-surface); border-radius: 12px; padding: 9px 10px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .task-row-main {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      font-size: 12.5px; font-weight: 600; cursor: pointer;
+    }
+    .chk-circle { width: 16px; height: 16px; border-radius: 50%; border: 1.8px solid var(--md-muted); flex-shrink: 0; }
+    .shelf-substeps {
+      padding-left: 24px; display: flex; flex-direction: column; gap: 4px;
+    }
+    .shelf-sub-row {
+      display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--md-muted); cursor: pointer;
+    }
+    .shelf-sub-row.done span { text-decoration: line-through; opacity: 0.5; }
+
+    /* ШТОРКИ (ДЕКОМПОЗИЦИЯ, КАЛЕНДАРЬ, ЗАПИСЬ И ОЧИСТКА) */
+    .scrim {
+      position: absolute; inset: 0; background: rgba(10, 10, 16, 0.52); backdrop-filter: blur(4px);
+      z-index: 40; display: flex; flex-direction: column; justify-content: flex-end;
+      opacity: 0; pointer-events: none; transition: opacity 0.24s ease;
+    }
+    .scrim.open { opacity: 1; pointer-events: auto; }
+    .sheet {
+      background: var(--md-card); border-radius: 30px 30px 0 0; padding: 12px 18px 22px;
+      transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+      max-height: 88%; display: flex; flex-direction: column;
+    }
+    .scrim.open .sheet { transform: translateY(0); }
+    .handle { width: 34px; height: 4px; border-radius: 99px; background: var(--md-line); margin: 0 auto 12px; }
+
+    /* 2. Кнопка без переноса и обрезки текста */
+    .primary-action-btn {
+      width: 100%; height: 48px; border-radius: 15px; border: none;
+      background: var(--md-primary); color: var(--md-on-primary);
+      font-family: inherit; font-size: 13.5px; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 14px;
+    }
+    .secondary-action-btn {
+      width: 100%; height: 44px; border-radius: 14px; border: 1px solid var(--md-line);
+      background: var(--md-card); color: var(--md-text); font-family: inherit;
+      font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center;
+    }
+
+    .studio-wave-box {
+      background: var(--md-surface); border-radius: 18px; padding: 14px; border: 1px solid var(--md-line);
+      margin: 8px 0 12px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .wave-bars { height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 3px; }
+    @keyframes w-pulse { 0%, 100% { height: 8px; opacity: 0.35; } 50% { height: 36px; opacity: 1; } }
+    .w-bar { width: 4px; border-radius: 99px; background: var(--md-primary); animation: w-pulse 0.85s infinite ease-in-out; }
+
+    /* 3. Карточка на экране «Очищено и разложено»: Задача vs вложенный + Шаг */
+    .parsed-card {
+      background: var(--md-surface); border-radius: 16px; padding: 10px 12px;
+      border: 1px solid var(--md-line); display: flex; flex-direction: column; gap: 7px; margin-bottom: 8px;
+    }
+    .parsed-inp {
+      border: none; background: transparent; font-family: inherit; font-size: 13.5px;
+      font-weight: 700; color: var(--md-text); outline: none; width: 100%;
+    }
+    .parsed-substeps-box {
+      padding-left: 10px; border-left: 2px solid var(--md-primary-box);
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .parsed-sub-row {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .parsed-sub-inp {
+      flex: 1; border: none; background: var(--md-card); padding: 4px 8px; border-radius: 7px;
+      font-family: inherit; font-size: 11.5px; color: var(--md-text); outline: none;
+    }
+
+    .form-inp {
+      width: 100%; border: 1px solid var(--md-line); background: var(--md-surface);
+      padding: 10px 12px; border-radius: 12px; font-family: inherit; font-size: 13px;
+      color: var(--md-text); outline: none;
+    }
+
+    .snackbar {
+      position: absolute; bottom: 74px; left: 16px; right: 16px;
+      background: var(--md-text); color: var(--md-card); padding: 10px 14px;
+      border-radius: 14px; font-size: 12px; font-weight: 600;
+      display: flex; justify-content: space-between; align-items: center;
+      opacity: 0; transform: translateY(12px); pointer-events: none; transition: all 0.25s ease; z-index: 50;
+    }
+    .snackbar.show { opacity: 1; transform: translateY(0); }
+
+    .bottom-nav {
+      height: 64px; background: var(--md-card); border-top: 1px solid var(--md-low);
+      display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px 10px 6px; flex-shrink: 0;
+    }
+    .nav-item {
+      border: none; background: transparent; font-family: inherit; display: flex;
+      flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      color: var(--md-muted); cursor: pointer;
+    }
+    .nav-pill {
+      width: 52px; height: 26px; border-radius: 99px; display: flex;
+      align-items: center; justify-content: center; transition: all 0.2s ease;
+    }
+    .nav-item.active .nav-pill { background: var(--md-sec-box); color: var(--md-text); }
+    .nav-item.active .nav-lbl { color: var(--md-text); font-weight: 700; }
+    .nav-lbl { font-size: 10.5px; font-weight: 500; }
+  </style>
+</head>
+<body>
+
+  <!-- ВЕРХНИЙ ПУЛЬТ СТЕНДА -->
+  <header class="studio-bar">
+    <span style="font-size:13px; font-weight:700; margin-right:4px;">Сброс v9.0</span>
+    <button class="st-btn active" onclick="setPalette('lavender', this)"><span class="swatch" style="background:#554F87;"></span>Лаванда</button>
+    <button class="st-btn" onclick="setPalette('sage', this)"><span class="swatch" style="background:#336746;"></span>Шалфей</button>
+    <button class="st-btn" onclick="setPalette('clay', this)"><span class="swatch" style="background:#8B4A27;"></span>Терракота</button>
+    <button class="st-btn" onclick="setPalette('ocean', this)"><span class="swatch" style="background:#176678;"></span>Океан</button>
+    <button class="st-btn" onclick="toggleDark()"><span class="material-symbols-rounded" style="font-size:15px;">contrast</span>Тема</button>
+    <button class="st-btn active" onclick="downloadHtml()"><span class="material-symbols-rounded" style="font-size:15px;">download</span>Скачать .html</button>
+  </header>
+
+  <div class="phone">
+    <div class="status-bar">
+      <span class="mono">09:41</span>
+      <div style="display:flex; gap:5px; align-items:center;">
+        <span class="material-symbols-rounded" style="font-size:14px;">wifi</span>
+        <span class="material-symbols-rounded" style="font-size:14px;">battery_5_bar</span>
+      </div>
+    </div>
+
+    <div class="view-port">
+
+      <!-- ====================================================================
+           ВКЛАДКА 1: «СЕЙЧАС» (БЕЗ СЛОВА "КОНТЕКСТ:", УДАЛЕНИЕ ВЫПОЛНЕННЫХ)
+           ==================================================================== -->
+      <section class="tab-view active" id="tab-now">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h1 class="h1">Привет, Данила</h1>
+            <p class="sub">Вправо — сделано, влево — потом</p>
+          </div>
+          <span class="badge badge-pri mono" id="stack-count-badge">В стопке: 2</span>
+        </div>
+
+        <!-- Чипы сложности: Просто / Средне / Сложно -->
+        <div class="chips-row">
+          <button class="diff-chip spring active" data-diff="easy" onclick="selectDiff('easy', this)">
+            <span class="material-symbols-rounded" style="font-size:15px;">bolt</span>Просто
+          </button>
+          <button class="diff-chip spring" data-diff="medium" onclick="selectDiff('medium', this)">
+            <span class="material-symbols-rounded" style="font-size:15px;">pace</span>Средне
+          </button>
+          <button class="diff-chip spring" data-diff="hard" onclick="selectDiff('hard', this)">
+            <span class="material-symbols-rounded" style="font-size:15px;">psychology</span>Сложно
+          </button>
+        </div>
+
+        <!-- 3D Стопка карточек -->
+        <div class="deck-wrap">
+          <div class="card-bg-3" id="bg3"></div>
+          <div class="card-bg-2" id="bg2"></div>
+
+          <!-- 5. Состояние, когда все задачи выбранной сложности выполнены -->
+          <div class="empty-deck-state" id="empty-deck">
+            <div style="width:48px; height:48px; border-radius:16px; background:var(--md-ok-box); color:var(--md-ok); display:flex; align-items:center; justify-content:center;">
+              <span class="material-symbols-rounded" style="font-size:26px;">done_all</span>
+            </div>
+            <div style="font-size:16px; font-weight:700;">В этой сложности всё выполнено!</div>
+            <div style="font-size:12px; color:var(--md-muted); line-height:1.4;">
+              Выполненные задачи убраны из стопки. Можешь переключить сложность или сбросить новые мысли.
+            </div>
+            <button class="st-btn active spring" style="margin-top:4px; padding:8px 14px;" onclick="switchToNextAvailableDiff()">
+              Показать другие задачи
+            </button>
+          </div>
+
+          <div class="swipe-card" id="main-card">
+            <div class="stamp done" id="st-done"><span class="material-symbols-rounded" style="font-size:14px;">check_circle</span>ГОТОВО</div>
+            <div class="stamp later" id="st-later"><span class="material-symbols-rounded" style="font-size:14px;">schedule</span>ПОТОМ</div>
+
+            <!-- 1. Без слова "Контекст:" — сразу название сферы -->
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="badge" id="c-ctx"><span class="material-symbols-rounded" style="font-size:13px;" id="c-ctx-icon">school</span><span id="c-ctx-txt">Учеба и вуз</span></span>
+              <span class="badge mono" id="c-diff-badge">Просто</span>
+            </div>
+
+            <div style="margin: auto 0;">
+              <div class="card-title" id="c-title">Отправить старосте тему работы в Telegram</div>
+              <div class="card-origin">
+                <span class="material-symbols-rounded" style="font-size:13px;">mic</span>
+                <span id="c-quote">Из речи: «...старосте тему скинуть надо...»</span>
+              </div>
+
+              <!-- Шаги задачи -->
+              <div id="c-substeps-box"></div>
+            </div>
+
+            <div class="card-foot">
+              <div style="display:flex; gap:10px; font-size:11.5px; font-weight:700; color:var(--md-muted);">
+                <span style="cursor:pointer; display:inline-flex; align-items:center; gap:3px;" onclick="triggerSwipe('left')">
+                  <span class="material-symbols-rounded" style="font-size:14px;">west</span>Потом
+                </span>
+                <span style="cursor:pointer; color:var(--md-ok); display:inline-flex; align-items:center; gap:3px;" onclick="triggerSwipe('right')">
+                  Готово<span class="material-symbols-rounded" style="font-size:14px;">east</span>
+                </span>
+              </div>
+
+              <!-- 6. Кнопка «Разбить на шаги» есть на ВСЕХ задачах любой сложности -->
+              <button class="decompose-btn spring" onclick="openDecomposeModal(event)">
+                <span class="material-symbols-rounded" style="font-size:15px;">account_tree</span>
+                <span id="decomp-btn-lbl">Разбить на шаги</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Кнопка «Попросить анализ у ИИ» доступна для ЛЮБОЙ задачи -->
+        <button class="ai-ask-btn spring" id="ai-ask-btn" onclick="requestAiAnalysis()">
+          <span class="material-symbols-rounded" style="font-size:16px; color:var(--md-primary);">wand_stars</span>
+          <span id="ai-ask-txt">Попросить анализ у ИИ</span>
+        </button>
+
+        <div class="ai-panel" id="ai-panel">
+          <div class="ai-panel-inner">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:10.5px; font-weight:700; color:var(--md-primary);">АНАЛИЗ И ЧЕРНОВИК ОТ ИИ</span>
+              <button class="st-btn" style="padding:3px 8px; font-size:10px;" onclick="this.innerText='Скопировано'">Скопировать</button>
+            </div>
+            <div class="ai-draft mono" id="ai-body"></div>
+          </div>
+        </div>
+
+        <!-- Док сброса мыслей -->
+        <div class="capture-dock">
+          <button class="voice-fab spring" onclick="openCaptureSheet('voice')">
+            <span class="material-symbols-rounded filled" style="font-size:22px;">mic</span>
+            <div style="text-align:left;">
+              <div style="font-size:14px; font-weight:700;">Сбросить мысли</div>
+              <div style="font-size:10.5px; opacity:0.85;">Скажи всё подряд — ИИ разложит</div>
+            </div>
+          </button>
+          <button class="dock-sec-btn spring" onclick="openCaptureSheet('review')" title="Очищено и разложено">
+            <span class="material-symbols-rounded">fact_check</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           ВКЛАДКА 2: «КАЛЕНДАРЬ» (ПОЛНОЦЕННОЕ ДОБАВЛЕНИЕ ЗАДАЧИ НА ДЕНЬ И ВРЕМЯ)
+           ==================================================================== -->
+      <section class="tab-view" id="tab-cal">
+        <div class="cal-head">
+          <div>
+            <h1 class="h1" id="cal-month-title">Октябрь 2026</h1>
+            <p class="sub">Дни с делами выделены, точки — число задач</p>
+          </div>
+          <div style="display:flex; gap:5px;">
+            <button class="icon-circle spring" onclick="changeMonth(-1)"><span class="material-symbols-rounded" style="font-size:18px;">chevron_left</span></button>
+            <button class="icon-circle spring" onclick="changeMonth(1)"><span class="material-symbols-rounded" style="font-size:18px;">chevron_right</span></button>
+          </div>
+        </div>
+
+        <div class="month-grid" id="cal-grid"></div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:11px; font-weight:700; color:var(--md-muted);" id="cal-day-label">ВЫБРАНО: 17 ОКТЯБРЯ</span>
+          <!-- 4. Открывает реальную модалку создания задачи на дату и время -->
+          <button class="st-btn active spring" style="padding:5px 10px;" onclick="openCalendarAddModal()">
+            <span class="material-symbols-rounded" style="font-size:14px;">add</span>Добавить на день
+          </button>
+        </div>
+
+        <div class="cal-events" id="cal-events-list"></div>
+      </section>
+
+      <!-- ====================================================================
+           ВКЛАДКА 3: «ПОЛКИ» (КОНТЕКСТ -> ЗАДАЧИ -> ШАГИ, ВЫПОЛНЕННЫЕ ИСЧЕЗАЮТ)
+           ==================================================================== -->
+      <section class="tab-view" id="tab-shelves">
+        <div>
+          <h1 class="h1">Полки по контекстам</h1>
+          <p class="sub">Задачи объединены по темам, внутри задач — шаги</p>
+        </div>
+
+        <div class="chips-row" style="margin: 10px 0 12px;">
+          <button class="diff-chip spring active" onclick="filterShelvesDiff('all', this)">Все</button>
+          <button class="diff-chip spring" onclick="filterShelvesDiff('easy', this)">Просто</button>
+          <button class="diff-chip spring" onclick="filterShelvesDiff('medium', this)">Средне</button>
+          <button class="diff-chip spring" onclick="filterShelvesDiff('hard', this)">Сложно</button>
+        </div>
+
+        <div id="shelves-container"></div>
+      </section>
+
+      <!-- ====================================================================
+           ШТОРКА 1: ДЕКОМПОЗИЦИЯ ЗАДАЧИ (КНОПКА ИИ БЕЗ ОБРЕЗКИ ТЕКСТА)
+           ==================================================================== -->
+      <div class="scrim" id="decomp-scrim" onclick="if(event.target===this) closeDecomposeModal()">
+        <div class="sheet">
+          <div class="handle"></div>
+          <div style="font-size:16px; font-weight:700;" id="decomp-modal-title">Разбить задачу на шаги</div>
+          <div style="font-size:11.5px; color:var(--md-muted); margin-top:2px; margin-bottom:12px;">
+            Добавь шаги к задаче через ИИ или впиши свои пункты вручную:
+          </div>
+
+          <!-- 2. Короткий емкий текст в одну строку: никогда не переносится и не обрезается -->
+          <button class="primary-action-btn spring" style="margin-bottom:10px;" onclick="generateStepsByAi()">
+            <span class="material-symbols-rounded" style="font-size:18px;">auto_awesome</span>
+            <span>Разбить через ИИ</span>
+          </button>
+
+          <div style="display:flex; gap:6px; margin-bottom:10px;">
+            <input id="manual-step-inp" class="form-inp" placeholder="Впиши шаг внутри задачи..." onkeydown="if(event.key==='Enter') addManualStep()" />
+            <button class="st-btn active spring" style="padding:0 14px;" onclick="addManualStep()">+ Шаг</button>
+          </div>
+
+          <div id="decomp-steps-preview" style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:12px;"></div>
+
+          <button class="secondary-action-btn spring" onclick="closeDecomposeModal()">Готово</button>
+        </div>
+      </div>
+
+      <!-- ====================================================================
+           ШТОРКА 2: РУЧНОЕ ДОБАВЛЕНИЕ ЗАДАЧИ В КАЛЕНДАРЬ НА ДЕНЬ И ВРЕМЯ
+           ==================================================================== -->
+      <div class="scrim" id="cal-add-scrim" onclick="if(event.target===this) closeCalendarAddModal()">
+        <div class="sheet">
+          <div class="handle"></div>
+          <div style="font-size:16px; font-weight:700; margin-bottom:4px;" id="cal-modal-title">Новая задача на 17 октября</div>
+          <div style="font-size:11.5px; color:var(--md-muted); margin-bottom:12px;">Задача появится в календаре и в выбранном контексте</div>
+
+          <div style="display:flex; flex-direction:column; gap:9px; margin-bottom:14px;">
+            <input id="cal-inp-title" class="form-inp" placeholder="Что нужно сделать? (например, Сдать лабу)" />
+            
+            <div style="display:grid; grid-template-columns: 1fr 1.5fr; gap:8px;">
+              <div>
+                <div style="font-size:10.5px; font-weight:700; color:var(--md-muted); margin-bottom:3px;">ВРЕМЯ:</div>
+                <input id="cal-inp-time" type="time" value="15:00" class="form-inp mono" />
+              </div>
+              <div>
+                <div style="font-size:10.5px; font-weight:700; color:var(--md-muted); margin-bottom:3px;">КОНТЕКСТ:</div>
+                <select id="cal-inp-ctx" class="form-inp">
+                  <option value="Учеба и вуз">Учеба и вуз</option>
+                  <option value="Разработка и код">Разработка и код</option>
+                  <option value="Покупки и заказы">Покупки и заказы</option>
+                  <option value="Дом и быт">Дом и быт</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size:10.5px; font-weight:700; color:var(--md-muted); margin-bottom:4px;">СЛОЖНОСТЬ:</div>
+              <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+                <button type="button" class="st-btn active cal-diff-opt" data-val="easy" onclick="pickCalDiff('easy', this)">Просто</button>
+                <button type="button" class="st-btn cal-diff-opt" data-val="medium" onclick="pickCalDiff('medium', this)">Средне</button>
+                <button type="button" class="st-btn cal-diff-opt" data-val="hard" onclick="pickCalDiff('hard', this)">Сложно</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:8px;">
+            <button class="secondary-action-btn spring" style="flex:1;" onclick="closeCalendarAddModal()">Отмена</button>
+            <button class="primary-action-btn spring" style="flex:2;" onclick="saveCalendarTask()">
+              <span class="material-symbols-rounded" style="font-size:18px;">event_available</span>
+              <span>Сохранить на день</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====================================================================
+           ШТОРКА 3: СБРОС МЫСЛЕЙ + «ОЧИЩЕНО И РАЗЛОЖЕНО» (+ ЗАДАЧА vs + ШАГ)
+           ==================================================================== -->
+      <div class="scrim" id="sheet-scrim" onclick="if(event.target===this) closeCaptureSheet()">
+        <div class="sheet">
+          <div class="handle"></div>
+
+          <div id="phase-voice">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:16px; font-weight:700;">Говори свободно</div>
+                <div style="font-size:11px; color:var(--md-muted);">ИИ уберет мусор, определит контекст и сложность</div>
+              </div>
+              <span class="badge badge-pri mono">REC 00:14</span>
+            </div>
+
+            <div class="studio-wave-box">
+              <div class="wave-bars" id="wave-bars"></div>
+              <div style="font-size:12px; line-height:1.45;">
+                <span style="color:var(--md-muted); text-decoration:line-through;">«Короче, блин, забыл...»</span>
+                Надо <span class="badge badge-pri">купить аккумуляторы АА</span>
+                и <span class="badge badge-pri">написать первую главу курсача</span>
+              </div>
+            </div>
+
+            <button class="primary-action-btn spring" onclick="switchSheetPhase('review')">
+              <span class="material-symbols-rounded" style="font-size:18px;">fact_check</span>
+              <span>Посмотреть разбор ИИ (2)</span>
+            </button>
+          </div>
+
+          <!-- 3. Фаза «Очищено и разложено»: "+ Задача" создает задачу, а "+ Шаг" добавляет подпункт ВНУТРЬ задачи -->
+          <div id="phase-review" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div>
+                <div style="font-size:16px; font-weight:700;">Очищено и разложено</div>
+                <div style="font-size:11px; color:var(--md-muted);">«+ Задача» — новая карточка, «+ Шаг» — пункт внутри</div>
+              </div>
+              <button class="st-btn active spring" onclick="addNewParsedTask()">+ Задача</button>
+            </div>
+
+            <div id="parsed-list-box" style="max-height:290px; overflow-y:auto;"></div>
+
+            <button class="primary-action-btn spring" style="margin-top:8px;" onclick="commitParsedTasks()">
+              <span class="material-symbols-rounded" style="font-size:18px;">check</span>
+              <span>Сохранить в систему</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Snackbar -->
+      <div class="snackbar" id="snackbar">
+        <span id="snackbar-txt">Сохранено</span>
+        <span class="material-symbols-rounded" style="font-size:16px;">check_circle</span>
+      </div>
+
+    </div>
+
+    <!-- Нижняя навигация: 3 вкладки -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" onclick="switchTab('now', this)">
+        <div class="nav-pill"><span class="material-symbols-rounded filled">style</span></div>
+        <span class="nav-lbl">Сейчас</span>
+      </button>
+      <button class="nav-item" onclick="switchTab('cal', this)">
+        <div class="nav-pill"><span class="material-symbols-rounded">calendar_month</span></div>
+        <span class="nav-lbl">Календарь</span>
+      </button>
+      <button class="nav-item" onclick="switchTab('shelves', this)">
+        <div class="nav-pill"><span class="material-symbols-rounded">inventory_2</span></div>
+        <span class="nav-lbl">Полки</span>
+      </button>
+    </nav>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 7. ЕДИНАЯ ИЕРАРХИЧЕСКАЯ БАЗА: КОНТЕКСТ -> ЗАДАЧА -> ШАГИ (SUBSTEPS)
+    // =========================================================================
+    const contextIcons = {
+      "Учеба и вуз": "school",
+      "Покупки и заказы": "shopping_bag",
+      "Разработка и код": "code",
+      "Дом и быт": "home"
+    };
+    const diffNames = { easy: "Просто", medium: "Средне", hard: "Сложно" };
+
+    let tasksDB = [
+      {
+        id: 101,
+        title: "Отправить старосте утвержденную тему работы в Telegram",
+        quote: "Из речи: «...старосте тему скинуть надо...»",
+        context: "Учеба и вуз",
+        diff: "easy",
+        completed: false,
+        substeps: []
+      },
+      {
+        id: 102,
+        title: "Заказать аккумуляторы АА на маркетплейсе",
+        quote: "Из речи: «...купить аккумуляторы АА для камеры...»",
+        context: "Покупки и заказы",
+        diff: "easy",
+        completed: false,
+        substeps: []
+      },
+      {
+        id: 103,
+        title: "Реализовать схему Room Database для задач и подзадач",
+        quote: "Из речи: «...настроить базу данных под контексты и шаги...»",
+        context: "Разработка и код",
+        diff: "medium",
+        completed: false,
+        substeps: [
+          { text: "Создать TaskEntity с полем contextCategory", done: true },
+          { text: "Добавить список SubstepItem через TypeConverter", done: false }
+        ]
+      },
+      {
+        id: 104,
+        title: "Написать первую главу курсовой работы",
+        quote: "Из речи: «...сесть за первую главу курсача...»",
+        context: "Учеба и вуз",
+        diff: "hard",
+        completed: false,
+        substeps: []
+      }
+    ];
+
+    // Универсальный генератор ИИ-шагов и ИИ-анализа для ЛЮБОЙ задачи (даже новой)
+    function getAiStepsForTask(task) {
+      const t = task.title.toLowerCase();
+      if (t.includes("аккумулятор") || t.includes("купить") || t.includes("заказать")) {
+        return [
+          "Открыть маркетплейс и вбить в поиск «" + task.title + "»",
+          "Сравнить 2 лучших варианта по отзывам и положить в корзину",
+          "Оформить доставку в ближайший пункт выдачи"
+        ];
+      }
+      if (t.includes("старост") || t.includes("отправить") || t.includes("написать")) {
+        return [
+          "Подготовить точную формулировку текста или файл",
+          "Открыть диалог в мессенджере и отправить сообщение",
+          "Убедиться, что сообщение прочитано"
+        ];
+      }
+      return [
+        "Подготовить материалы и рабочее окно для задачи «" + task.title + "»",
+        "Выполнить основную часть в течение 15 минут без отвлечений",
+        "Проверить результат и зафиксировать итог"
+      ];
+    }
+
+    function getAiAdviceForTask(task) {
+      return `Анализ задачи (${diffNames[task.diff]} • ${task.context}):\nЧтобы сделать «${task.title}» быстрее, начни с самого простого подготовительного действия на 2 минуты или разбей задачу кнопкой «Разбить на шаги».`;
+    }
+
+    // =========================================================================
+    // ЭКРАН «СЕЙЧАС»: ФИЛЬТРАЦИЯ АКТИВНЫХ ЗАДАЧ И УДАЛЕНИЕ ВЫПОЛНЕННЫХ
+    // =========================================================================
+    let curDiff = 'easy', cIdx = 0;
+    const cardEl = document.getElementById('main-card');
+    const bg2 = document.getElementById('bg2');
+    const bg3 = document.getElementById('bg3');
+    const emptyDeckEl = document.getElementById('empty-deck');
+
+    function getActiveDeck() {
+      return tasksDB.filter(t => !t.completed && t.diff === curDiff);
+    }
+
+    function getCurrentTask() {
+      const list = getActiveDeck();
+      if (!list.length) return null;
+      return list[cIdx % list.length];
+    }
+
+    function renderDeck() {
+      const list = getActiveDeck();
+      document.getElementById('stack-count-badge').innerText = "В стопке: " + list.length;
+
+      // Скрываем панель ИИ при перерисовке карточки
+      document.getElementById('ai-panel').classList.remove('open');
+      document.getElementById('ai-ask-txt').innerText = 'Попросить анализ у ИИ';
+
+      // 5. Если все задачи в этой сложности выполнены — скрываем карточку и показываем Empty State
+      if (list.length === 0) {
+        cardEl.style.display = 'none';
+        bg2.style.opacity = '0';
+        bg3.style.opacity = '0';
+        emptyDeckEl.classList.add('visible');
+        document.getElementById('ai-ask-btn').style.display = 'none';
+        return;
+      }
+
+      emptyDeckEl.classList.remove('visible');
+      cardEl.style.display = 'flex';
+      document.getElementById('ai-ask-btn').style.display = 'flex';
+      bg2.style.opacity = list.length >= 2 ? '0.75' : '0';
+      bg3.style.opacity = list.length >= 3 ? '0.42' : '0';
+
+      const task = getCurrentTask();
+      document.getElementById('c-ctx-icon').innerText = contextIcons[task.context] || 'label';
+      // 1. Никакого слова "Контекст:" — только чистое название сферы
+      document.getElementById('c-ctx-txt').innerText = task.context;
+      document.getElementById('c-diff-badge').innerText = diffNames[task.diff];
+      document.getElementById('c-title').innerText = task.title;
+      document.getElementById('c-quote').innerText = task.quote;
+
+      const subBox = document.getElementById('c-substeps-box');
+      if (task.substeps && task.substeps.length > 0) {
+        const doneCnt = task.substeps.filter(s => s.done).length;
+        document.getElementById('decomp-btn-lbl').innerText = `Шаги (${doneCnt}/${task.substeps.length})`;
+        subBox.innerHTML = `<div class="substeps-list">` + task.substeps.map((st, idx) => `
+          <div class="substep-item ${st.done ? 'done' : ''}" onclick="toggleSubstep(${task.id}, ${idx}, event)">
+            <div class="mini-chk"></div>
+            <span>${st.text}</span>
+          </div>
+        `).join('') + `</div>`;
+      } else {
+        document.getElementById('decomp-btn-lbl').innerText = "Разбить на шаги";
+        subBox.innerHTML = "";
+      }
+    }
+
+    function selectDiff(diff, btn) {
+      curDiff = diff; cIdx = 0;
+      document.querySelectorAll('#tab-now .diff-chip').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      else {
+        const targetBtn = document.querySelector(`#tab-now .diff-chip[data-diff="${diff}"]`);
+        if (targetBtn) targetBtn.classList.add('active');
+      }
+      renderDeck();
+    }
+
+    function switchToNextAvailableDiff() {
+      const order = ['easy', 'medium', 'hard'];
+      for (const d of order) {
+        if (tasksDB.some(t => !t.completed && t.diff === d)) {
+          selectDiff(d, null);
+          return;
+        }
+      }
+      openCaptureSheet('voice');
+    }
+
+    function toggleSubstep(taskId, stepIdx, e) {
+      if (e) e.stopPropagation();
+      const task = tasksDB.find(t => t.id === taskId);
+      if (!task) return;
+      task.substeps[stepIdx].done = !task.substeps[stepIdx].done;
+      renderDeck();
+      renderShelves();
+    }
+
+    // 5. Выполнение задачи полностью убирает её из активного списка
+    function completeTaskById(taskId) {
+      const task = tasksDB.find(t => t.id === taskId);
+      if (task) task.completed = true;
+      renderDeck();
+      renderShelves();
+      showSnackbar('Задача выполнена и убрана');
+    }
+
+    // =========================================================================
+    // 2 & 6. ДЕКОМПОЗИЦИЯ И АНАЛИЗ ИИ НА ВСЕХ ЗАДАЧАХ
+    // =========================================================================
+    function openDecomposeModal(e) {
+      e.stopPropagation();
+      const task = getCurrentTask();
+      if (!task) return;
+      document.getElementById('decomp-modal-title').innerText = task.title;
+      renderDecompPreview();
+      document.getElementById('decomp-scrim').classList.add('open');
+    }
+    function closeDecomposeModal() {
+      document.getElementById('decomp-scrim').classList.remove('open');
+      renderDeck();
+      renderShelves();
+    }
+    function renderDecompPreview() {
+      const task = getCurrentTask();
+      const box = document.getElementById('decomp-steps-preview');
+      if (!task || !task.substeps.length) {
+        box.innerHTML = `<div style="font-size:12px; color:var(--md-muted); padding:6px 0;">Шагов пока нет. Нажми «Разбить через ИИ» или добавь свой шаг.</div>`;
+        return;
+      }
+      box.innerHTML = task.substeps.map((s, i) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-surface); padding:8px 10px; border-radius:10px; font-size:12px; font-weight:600;">
+          <span>${i + 1}. ${s.text}</span>
+          <span class="material-symbols-rounded" style="font-size:16px; cursor:pointer; color:var(--md-muted);" onclick="removeSubstep(${i})">close</span>
+        </div>
+      `).join('');
+    }
+    function generateStepsByAi() {
+      const task = getCurrentTask();
+      if (!task) return;
+      task.substeps = getAiStepsForTask(task).map(txt => ({ text: txt, done: false }));
+      renderDecompPreview();
+      showSnackbar('ИИ создал шаги для задачи');
+    }
+    function addManualStep() {
+      const inp = document.getElementById('manual-step-inp');
+      const task = getCurrentTask();
+      if (!task || !inp.value.trim()) return;
+      task.substeps.push({ text: inp.value.trim(), done: false });
+      inp.value = '';
+      renderDecompPreview();
+    }
+    function removeSubstep(i) {
+      const task = getCurrentTask();
+      if (!task) return;
+      task.substeps.splice(i, 1);
+      renderDecompPreview();
+    }
+
+    function requestAiAnalysis() {
+      const task = getCurrentTask();
+      if (!task) return;
+      const panel = document.getElementById('ai-panel');
+      const txt = document.getElementById('ai-ask-txt');
+      if (panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        txt.innerText = 'Попросить анализ у ИИ';
+        return;
+      }
+      txt.innerText = 'ИИ анализирует задачу...';
+      setTimeout(() => {
+        document.getElementById('ai-body').innerText = getAiAdviceForTask(task);
+        panel.classList.add('open');
+        txt.innerText = 'Скрыть анализ ИИ';
+      }, 280);
+    }
+
+    // Физика свайпов
+    let dragging = false, startX = 0, dx = 0;
+    cardEl.addEventListener('pointerdown', e => {
+      if (e.target.closest('button') || e.target.closest('.substep-item')) return;
+      dragging = true; startX = e.clientX; cardEl.style.transition = 'none';
+      cardEl.setPointerCapture(e.pointerId);
+    });
+    cardEl.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      dx = e.clientX - startX;
+      const p = Math.min(Math.abs(dx) / 110, 1);
+      cardEl.style.transform = `translateX(${dx}px) rotate(${dx * 0.045}deg)`;
+      bg2.style.transform = `scale(${0.945 + 0.055 * p}) translateY(${11 - 11 * p}px)`;
+      document.getElementById('st-done').style.opacity = dx > 25 ? p : 0;
+      document.getElementById('st-later').style.opacity = dx < -25 ? p : 0;
+    });
+    cardEl.addEventListener('pointerup', () => {
+      if (!dragging) return;
+      dragging = false;
+      cardEl.style.transition = 'transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.22s ease';
+      if (dx > 85) triggerSwipe('right');
+      else if (dx < -85) triggerSwipe('left');
+      else {
+        cardEl.style.transform = 'translateX(0) rotate(0)';
+        bg2.style.transform = 'scale(0.945) translateY(11px)';
+        document.getElementById('st-done').style.opacity = 0;
+        document.getElementById('st-later').style.opacity = 0;
+      }
+      dx = 0;
+    });
+
+    function triggerSwipe(dir) {
+      const task = getCurrentTask();
+      if (!task) return;
+      cardEl.style.transform = `translateX(${dir === 'right' ? 350 : -350}px) rotate(${dir === 'right' ? 15 : -15}deg)`;
+      cardEl.style.opacity = '0';
+      setTimeout(() => {
+        document.getElementById('st-done').style.opacity = 0;
+        document.getElementById('st-later').style.opacity = 0;
+        if (dir === 'right') {
+          // 5. Свайп вправо помечает задачу выполненной и удаляет из активной стопки
+          task.completed = true;
+          renderShelves();
+          showSnackbar('Выполнено: ' + task.title);
+        } else {
+          cIdx++;
+        }
+        renderDeck();
+        cardEl.style.transition = 'none'; cardEl.style.transform = 'scale(0.95)';
+        bg2.style.transform = 'scale(0.945) translateY(11px)';
+        setTimeout(() => {
+          cardEl.style.transition = 'transform 0.22s ease, opacity 0.2s ease';
+          cardEl.style.transform = 'scale(1)'; cardEl.style.opacity = '1';
+        }, 25);
+      }, 220);
+    }
+
+    // =========================================================================
+    // 4. КАЛЕНДАРЬ С ПОЛНОЦЕННЫМ РУЧНЫМ ДОБАВЛЕНИЕМ НА ДЕНЬ И ВРЕМЯ
+    // =========================================================================
+    const months = [
+      { name: "Сентябрь 2026", days: 30, offset: 1 },
+      { name: "Октябрь 2026", days: 31, offset: 3 },
+      { name: "Ноябрь 2026", days: 30, offset: 6 }
+    ];
+    let mIdx = 1, selDay = 17, calModalDiff = 'easy';
+    const calEventsDB = {
+      "1-14": [{ id: 901, time: "18:00", title: "Сдать отчет по лабораторной", ctx: "Учеба и вуз", diff: "medium" }],
+      "1-17": [
+        { id: 902, time: "14:00", title: "Созвон с научруком по первой главе", ctx: "Учеба и вуз", diff: "hard" },
+        { id: 903, time: "19:30", title: "Забрать аккумуляторы АА из ПВЗ", ctx: "Покупки и заказы", diff: "easy" }
+      ],
+      "1-22": [
+        { id: 904, time: "10:00", title: "Показать прототип приложения", ctx: "Разработка и код", diff: "medium" },
+        { id: 905, time: "15:00", title: "Зачет по моделированию", ctx: "Учеба и вуз", diff: "hard" }
+      ]
+    };
+
+    function renderCalendar() {
+      const m = months[mIdx];
+      document.getElementById('cal-month-title').innerText = m.name;
+      const grid = document.getElementById('cal-grid');
+      const dows = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => `<div class="dow">${d}</div>`).join('');
+      let cells = '';
+      for (let i = 0; i < m.offset; i++) cells += `<div class="day-cell empty"></div>`;
+      for (let d = 1; d <= m.days; d++) {
+        const key = `${mIdx}-${d}`;
+        const count = calEventsDB[key] ? calEventsDB[key].length : 0;
+        const hasTasksClass = count > 0 ? 'has-tasks' : '';
+        const selectedClass = d === selDay ? 'selected' : '';
+        const dotsHtml = count > 0
+          ? `<div class="dots-row">${Array.from({length: Math.min(count, 4)}, () => `<div class="task-dot"></div>`).join('')}</div>`
+          : '';
+        cells += `<div class="day-cell ${hasTasksClass} ${selectedClass}" onclick="pickDay(${d})">${d}${dotsHtml}</div>`;
+      }
+      grid.innerHTML = dows + cells;
+      renderCalEvents();
+    }
+
+    function pickDay(d) { selDay = d; renderCalendar(); }
+    function changeMonth(delta) {
+      mIdx = Math.max(0, Math.min(months.length - 1, mIdx + delta));
+      selDay = 1; renderCalendar();
+    }
+    function renderCalEvents() {
+      const key = `${mIdx}-${selDay}`;
+      const list = (calEventsDB[key] || []).sort((a, b) => a.time.localeCompare(b.time));
+      document.getElementById('cal-day-label').innerText = `ВЫБРАНО: ${selDay} ЧИСЛО (ЗАДАЧ: ${list.length})`;
+      const box = document.getElementById('cal-events-list');
+      if (!list.length) {
+        box.innerHTML = `<div class="cal-ev-card"><span style="font-size:12px; color:var(--md-muted);">На этот день задач нет. Нажми «+ Добавить на день», чтобы запланировать.</span></div>`;
+        return;
+      }
+      box.innerHTML = list.map((ev, idx) => `
+        <div class="cal-ev-card">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="badge badge-pri mono">${ev.time}</span>
+            <div>
+              <div style="font-size:13px; font-weight:700;">${ev.title}</div>
+              <div style="font-size:11px; color:var(--md-muted);">${ev.ctx} • ${diffNames[ev.diff]}</div>
+            </div>
+          </div>
+          <button class="st-btn spring" style="background:var(--md-ok-box); color:var(--md-ok); padding:4px 8px;" onclick="completeCalEvent('${key}', ${idx})">✓</button>
+        </div>
+      `).join('');
+    }
+
+    function completeCalEvent(key, idx) {
+      calEventsDB[key].splice(idx, 1);
+      renderCalendar();
+      showSnackbar('Задача в календаре выполнена');
+    }
+
+    function openCalendarAddModal() {
+      document.getElementById('cal-modal-title').innerText = `Новая задача на ${selDay} число`;
+      document.getElementById('cal-inp-title').value = '';
+      document.getElementById('cal-add-scrim').classList.add('open');
+      setTimeout(() => document.getElementById('cal-inp-title').focus(), 150);
+    }
+    function closeCalendarAddModal() {
+      document.getElementById('cal-add-scrim').classList.remove('open');
+    }
+    function pickCalDiff(val, btn) {
+      calModalDiff = val;
+      document.querySelectorAll('.cal-diff-opt').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    function saveCalendarTask() {
+      const titleInp = document.getElementById('cal-inp-title');
+      const timeVal = document.getElementById('cal-inp-time').value || "12:00";
+      const ctxVal = document.getElementById('cal-inp-ctx').value;
+      const title = titleInp.value.trim();
+      if (!title) return;
+
+      const key = `${mIdx}-${selDay}`;
+      if (!calEventsDB[key]) calEventsDB[key] = [];
+      calEventsDB[key].push({ id: Date.now(), time: timeVal, title: title, ctx: ctxVal, diff: calModalDiff });
+
+      // Также добавляем задачу в общую систему (Контекст -> Задача)
+      tasksDB.unshift({
+        id: Date.now() + 1,
+        title: `${title} (${selDay} число в ${timeVal})`,
+        quote: `Запланировано в календаре на ${timeVal}`,
+        context: ctxVal,
+        diff: calModalDiff,
+        completed: false,
+        substeps: []
+      });
+
+      closeCalendarAddModal();
+      renderCalendar();
+      renderDeck();
+      renderShelves();
+      showSnackbar(`Добавлено на ${selDay} число в ${timeVal}`);
+    }
+
+    // =========================================================================
+    // 5 & 7. ВКЛАДКА «ПОЛКИ»: ИЕРАРХИЯ КОНТЕКСТ -> ЗАДАЧА -> ШАГИ + УДАЛЕНИЕ ВЫПОЛНЕННЫХ
+    // =========================================================================
+    let shelfDiffFilter = 'all';
+    const openContexts = { "Учеба и вуз": true, "Покупки и заказы": true, "Разработка и код": true, "Дом и быт": true };
+
+    function renderShelves() {
+      const box = document.getElementById('shelves-container');
+      const grouped = {};
+
+      // Берем ТОЛЬКО невыполненные задачи (!t.completed) — когда все выполнены, тема очищается
+      tasksDB.filter(t => !t.completed).forEach(t => {
+        if (shelfDiffFilter !== 'all' && t.diff !== shelfDiffFilter) return;
+        if (!grouped[t.context]) grouped[t.context] = [];
+        grouped[t.context].push(t);
+      });
+
+      const keys = Object.keys(grouped);
+      if (!keys.length) {
+        box.innerHTML = `<div style="background:var(--md-card); border-radius:18px; padding:20px; text-align:center; border:1px dashed var(--md-line); font-size:13px; color:var(--md-muted);">Все активные задачи в этом фильтре выполнены!</div>`;
+        return;
+      }
+
+      box.innerHTML = keys.map(ctxName => {
+        const items = grouped[ctxName];
+        const isOpen = openContexts[ctxName] !== false;
+        const iconName = contextIcons[ctxName] || "label";
+        return `
+          <div class="shelf-acc ${isOpen ? 'open' : ''}">
+            <div class="shelf-head" onclick="toggleCtxAccordion('${ctxName}')">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="material-symbols-rounded" style="color:var(--md-primary); font-size:18px;">${iconName}</span>
+                <span style="font-size:13.5px; font-weight:700;">${ctxName}</span>
+              </div>
+              <span class="badge mono">${items.length}</span>
+            </div>
+            <div class="shelf-body">
+              ${items.map(task => `
+                <div class="shelf-task-block">
+                  <div class="task-row-main" onclick="completeTaskById(${task.id})">
+                    <div style="display:flex; align-items:center; gap:9px;">
+                      <div class="chk-circle"></div>
+                      <span>${task.title}</span>
+                    </div>
+                    <span class="badge">${diffNames[task.diff]}</span>
+                  </div>
+                  ${task.substeps && task.substeps.length > 0 ? `
+                    <div class="shelf-substeps">
+                      ${task.substeps.map((st, sIdx) => `
+                        <div class="shelf-sub-row ${st.done ? 'done' : ''}" onclick="toggleSubstep(${task.id},${sIdx}, event)">
+                          <div class="mini-chk"></div>
+                          <span>${st.text}</span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleCtxAccordion(ctxName) {
+      openContexts[ctxName] = openContexts[ctxName] === false ? true : false;
+      renderShelves();
+    }
+    function filterShelvesDiff(diff, btn) {
+      shelfDiffFilter = diff;
+      document.querySelectorAll('#tab-shelves .diff-chip').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderShelves();
+    }
+
+    // =========================================================================
+    // 3. ЭКРАН «ОЧИЩЕНО И РАЗЛОЖЕНО»: "+ ЗАДАЧА" VS "+ ШАГ" (ПУНКТ ВНУТРИ ЗАДАЧИ)
+    // =========================================================================
+    let parsedItems = [
+      {
+        context: "Покупки и заказы", diff: "easy",
+        title: "Купить аккумуляторы АА на маркетплейсе",
+        substeps: ["Проверить емкость от 2000 mAh"]
+      },
+      {
+        context: "Учеба и вуз", diff: "hard",
+        title: "Написать введение к курсовой работе",
+        substeps: ["Составить список литературы по ГОСТ", "Описать актуальность темы"]
+      }
+    ];
+    const ctxOptions = ["Учеба и вуз", "Покупки и заказы", "Разработка и код", "Дом и быт"];
+    const diffCycle = ["easy", "medium", "hard"];
+
+    function renderParsedEditor() {
+      const box = document.getElementById('parsed-list-box');
+      box.innerHTML = parsedItems.map((it, i) => `
+        <div class="parsed-card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <button class="st-btn active" style="padding:3px 9px; font-size:10.5px;" onclick="cycleParsedCtx(${i})">
+              <span class="material-symbols-rounded" style="font-size:13px;">${contextIcons[it.context] || 'label'}</span>
+              <span>${it.context}</span>
+            </button>
+            <div style="display:flex; align-items:center; gap:5px;">
+              <button class="st-btn" style="padding:3px 8px; font-size:10.5px;" onclick="cycleParsedDiff(${i})">${diffNames[it.diff]}</button>
+              <button class="st-btn" style="padding:3px 8px; font-size:10.5px; color:var(--md-primary);" onclick="addStepToParsedTask(${i})">+ Шаг</button>
+              <span class="material-symbols-rounded" style="font-size:16px; cursor:pointer; color:var(--md-muted);" onclick="removeParsedTask(${i})">close</span>
+            </div>
+          </div>
+
+          <input class="parsed-inp" value="${it.title}" placeholder="Название задачи..." oninput="parsedItems[${i}].title = this.value" />
+
+          ${it.substeps.length > 0 ? `
+            <div class="parsed-substeps-box">
+              ${it.substeps.map((sub, sIdx) => `
+                <div class="parsed-sub-row">
+                  <span style="font-size:11px; color:var(--md-muted); font-weight:700;">${sIdx + 1}.</span>
+                  <input class="parsed-sub-inp" value="${sub}" placeholder="Шаг внутри задачи..." oninput="parsedItems[${i}].substeps[${sIdx}] = this.value" />
+                  <span class="material-symbols-rounded" style="font-size:14px; cursor:pointer; color:var(--md-muted);" onclick="removeParsedSubstep(${i}, ${sIdx})">close</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    function cycleParsedCtx(i) {
+      const cur = ctxOptions.indexOf(parsedItems[i].context);
+      parsedItems[i].context = ctxOptions[(cur + 1) % ctxOptions.length];
+      renderParsedEditor();
+    }
+    function cycleParsedDiff(i) {
+      const cur = diffCycle.indexOf(parsedItems[i].diff);
+      parsedItems[i].diff = diffCycle[(cur + 1) % diffCycle.length];
+      renderParsedEditor();
+    }
+    // "+ Задача" добавляет новую самостоятельную карточку задачи
+    function addNewParsedTask() {
+      parsedItems.unshift({
+        context: "Учеба и вуз",
+        diff: "easy",
+        title: "Новая отдельная задача",
+        substeps: []
+      });
+      renderParsedEditor();
+    }
+    // "+ Шаг" добавляет вложенный подпункт ВНУТРЬ конкретной задачи
+    function addStepToParsedTask(taskIdx) {
+      parsedItems[taskIdx].substeps.push("Новый шаг внутри задачи");
+      renderParsedEditor();
+    }
+    function removeParsedTask(i) {
+      parsedItems.splice(i, 1);
+      renderParsedEditor();
+    }
+    function removeParsedSubstep(taskIdx, subIdx) {
+      parsedItems[taskIdx].substeps.splice(subIdx, 1);
+      renderParsedEditor();
+    }
+
+    function commitParsedTasks() {
+      parsedItems.forEach(it => {
+        if (!it.title.trim()) return;
+        tasksDB.unshift({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          title: it.title.trim(),
+          quote: "Очищено из голосового сброса",
+          context: it.context,
+          diff: it.diff,
+          completed: false,
+          substeps: it.substeps.filter(s => s.trim()).map(s => ({ text: s.trim(), done: false }))
+        });
+      });
+      cIdx = 0;
+      renderDeck();
+      renderShelves();
+      closeCaptureSheet();
+      showSnackbar('Задачи и их шаги сохранены');
+    }
+
+    function openCaptureSheet(phase) {
+      switchSheetPhase(phase);
+      document.getElementById('sheet-scrim').classList.add('open');
+    }
+    function closeCaptureSheet() { document.getElementById('sheet-scrim').classList.remove('open'); }
+    function switchSheetPhase(phase) {
+      document.getElementById('phase-voice').style.display = phase === 'voice' ? 'block' : 'none';
+      document.getElementById('phase-review').style.display = phase === 'review' ? 'block' : 'none';
+      if (phase === 'review') renderParsedEditor();
+    }
+
+    document.getElementById('wave-bars').innerHTML = Array.from({length: 24}, (_, i) =>
+      `<div class="w-bar" style="animation-delay:${(i * 0.07).toFixed(2)}s"></div>`
+    ).join('');
+
+    // Навигация и темы
+    function switchTab(tab, btn) {
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    function setPalette(p, btn) {
+      document.documentElement.setAttribute('data-palette', p);
+      btn.parentElement.querySelectorAll('.st-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    function toggleDark() {
+      const r = document.documentElement;
+      r.setAttribute('data-mode', r.getAttribute('data-mode') === 'dark' ? 'light' : 'dark');
+    }
+    function showSnackbar(msg) {
+      const sb = document.getElementById('snackbar');
+      document.getElementById('snackbar-txt').innerText = msg;
+      sb.classList.add('show');
+      setTimeout(() => sb.classList.remove('show'), 2500);
+    }
+    function downloadHtml() {
+      const html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "sbros_v9.html";
+      a.click();
+    }
+
+    renderDeck();
+    renderCalendar();
+    renderShelves();
+  </script>
+</body>
+</html>

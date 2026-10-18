@@ -88,6 +88,7 @@ import androidx.core.content.ContextCompat
 import com.sbros.app.domain.model.EditableParsedItem
 import com.sbros.app.domain.model.EnergyLevel
 import com.sbros.app.domain.model.ShelfType
+import com.sbros.app.domain.model.SubstepItem
 import com.sbros.app.domain.model.TaskDifficulty
 import com.sbros.app.ui.capture.components.GentlePromptCard
 import com.sbros.app.ui.capture.components.LiveTranscriptBox
@@ -525,7 +526,7 @@ fun CaptureBottomSheet(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Тапни на контекст или сложность, чтобы поменять",
+                                    text = "«+ Задача» — новая карточка, «+ Шаг» — пункт внутри",
                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -638,10 +639,10 @@ fun CaptureBottomSheet(
                                                 }
                                             }
 
-                                            // Правый блок: сложность + удаление
+                                            // Правый блок: сложность + «+ Шаг» + удаление
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                horizontalArrangement = Arrangement.spacedBy(5.dp)
                                             ) {
                                                 Surface(
                                                     shape = CircleShape,
@@ -663,7 +664,33 @@ fun CaptureBottomSheet(
                                                             fontSize = 11.sp
                                                         ),
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                    )
+                                                }
+
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                                    modifier = Modifier
+                                                        .clip(CircleShape)
+                                                        .clickable {
+                                                            val updatedSteps = item.substeps + SubstepItem(
+                                                                text = "Новый шаг внутри задачи",
+                                                                isDone = false
+                                                            )
+                                                            parsedItems = parsedItems.toMutableList().also {
+                                                                it[index] = item.copy(substeps = updatedSteps)
+                                                            }
+                                                        }
+                                                ) {
+                                                    Text(
+                                                        text = "+ Шаг",
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 11.sp
+                                                        ),
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                                     )
                                                 }
 
@@ -671,8 +698,8 @@ fun CaptureBottomSheet(
                                                     onClick = {
                                                         parsedItems = parsedItems.toMutableList().also { it.removeAt(index) }
                                                     },
-                                                    modifier = Modifier.size(28.dp)
-                                                ) {
+                                                    modifier = Modifier.size(26.dp)
+                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Rounded.Close,
                                                         contentDescription = "Удалить",
@@ -737,6 +764,102 @@ fun CaptureBottomSheet(
                                                 modifier = Modifier.padding(start = 2.dp)
                                             )
                                         }
+
+                                        // Вложенные подпункты внутри карточки (+ Шаг)
+                                        if (item.substeps.isNotEmpty()) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 4.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                // Вертикальная левая полоса
+                                                Surface(
+                                                    shape = RoundedCornerShape(2.dp),
+                                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                                    modifier = Modifier
+                                                        .width(2.5.dp)
+                                                        .height(28.dp * item.substeps.size)
+                                                ) {}
+
+                                                Column(
+                                                    modifier = Modifier.weight(1f),
+                                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    item.substeps.forEachIndexed { sIdx, substep ->
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = "${sIdx + 1}.",
+                                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                                    fontSize = 11.sp,
+                                                                    fontWeight = FontWeight.Bold
+                                                                ),
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+
+                                                            BasicTextField(
+                                                                value = substep.text,
+                                                                onValueChange = { newText ->
+                                                                    val updated = item.substeps.toMutableList().also {
+                                                                        it[sIdx] = substep.copy(text = newText)
+                                                                    }
+                                                                    parsedItems = parsedItems.toMutableList().also {
+                                                                        it[index] = item.copy(substeps = updated)
+                                                                    }
+                                                                },
+                                                                textStyle = MaterialTheme.typography.bodySmall.copy(
+                                                                    fontSize = 12.sp,
+                                                                    color = MaterialTheme.colorScheme.onSurface
+                                                                ),
+                                                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                                                modifier = Modifier
+                                                                    .weight(1f)
+                                                                    .background(
+                                                                        MaterialTheme.colorScheme.surface,
+                                                                        RoundedCornerShape(6.dp)
+                                                                    )
+                                                                    .padding(horizontal = 8.dp, vertical = 5.dp),
+                                                                decorationBox = { innerField ->
+                                                                    if (substep.text.isEmpty()) {
+                                                                        Text(
+                                                                            text = "Шаг внутри задачи...",
+                                                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                                                fontSize = 12.sp,
+                                                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                    innerField()
+                                                                }
+                                                            )
+
+                                                            IconButton(
+                                                                onClick = {
+                                                                    val updated = item.substeps.toMutableList().also {
+                                                                        it.removeAt(sIdx)
+                                                                    }
+                                                                    parsedItems = parsedItems.toMutableList().also {
+                                                                        it[index] = item.copy(substeps = updated)
+                                                                    }
+                                                                },
+                                                                modifier = Modifier.size(24.dp)
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Rounded.Close,
+                                                                    contentDescription = "Удалить шаг",
+                                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                    modifier = Modifier.size(14.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -744,64 +867,35 @@ fun CaptureBottomSheet(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Нижний ряд: «+ Шаг» и «Подтвердить и сохранить в систему»
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        // Нижняя кнопка: «Сохранить в систему»
+                        Button(
+                            onClick = {
+                                onSaveParsedTasks(parsedItems)
+                                onDismissRequest()
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
                         ) {
-                            FilledTonalButton(
-                                onClick = {
-                                    parsedItems = parsedItems + EditableParsedItem(
-                                        title = "",
-                                        shelf = ShelfType.SIMPLE_STEPS,
-                                        energyLevel = EnergyLevel.MECHANICAL,
-                                        aiHint = "Добавлено вручную"
-                                    )
-                                },
-                                shape = RoundedCornerShape(16.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(52.dp)
-                            ) {
-                                Text(
-                                    text = "+ Шаг",
-                                    style = MaterialTheme.typography.labelLarge.copy(
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 13.5.sp
-                                    )
-                                )
-                            }
-
-                            Button(
-                                onClick = {
-                                    onSaveParsedTasks(parsedItems)
-                                    onDismissRequest()
-                                },
-                                shape = RoundedCornerShape(16.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Сохранить в систему",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
                                 ),
-                                modifier = Modifier
-                                    .weight(2.2f)
-                                    .height(52.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Подтвердить и сохранить",
-                                    style = MaterialTheme.typography.labelLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.5.sp
-                                    ),
-                                    maxLines = 1
-                                )
-                            }
+                                maxLines = 1
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))

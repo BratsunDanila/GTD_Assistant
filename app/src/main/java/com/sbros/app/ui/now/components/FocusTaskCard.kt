@@ -36,10 +36,14 @@ import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.East
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material.icons.rounded.West
 import androidx.compose.ui.text.style.TextDecoration
@@ -273,19 +277,26 @@ fun FocusTaskCard(
                                     shape = RoundedCornerShape(99.dp),
                                     color = MaterialTheme.colorScheme.surfaceContainerHigh
                                 ) {
+                                    val contextIcon = when {
+                                        task.contextCategory.contains("учеб", ignoreCase = true) || task.contextCategory.contains("вуз", ignoreCase = true) -> Icons.Rounded.School
+                                        task.contextCategory.contains("покуп", ignoreCase = true) || task.contextCategory.contains("заказ", ignoreCase = true) -> Icons.Rounded.ShoppingBag
+                                        task.contextCategory.contains("разработ", ignoreCase = true) || task.contextCategory.contains("код", ignoreCase = true) -> Icons.Rounded.Code
+                                        task.contextCategory.contains("дом", ignoreCase = true) || task.contextCategory.contains("быт", ignoreCase = true) -> Icons.Rounded.Home
+                                        else -> Icons.AutoMirrored.Rounded.Label
+                                    }
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.AutoMirrored.Rounded.Label,
+                                            imageVector = contextIcon,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(13.dp)
                                         )
                                         Text(
-                                            text = "Контекст: ${task.contextCategory}",
+                                            text = task.contextCategory.ifBlank { "Общее" },
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1

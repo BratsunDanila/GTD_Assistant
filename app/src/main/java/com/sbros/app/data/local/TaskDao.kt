@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TaskDao {
 
-    @Query("SELECT * FROM tasks ORDER BY isCompleted ASC, createdAt DESC")
+    @Query("SELECT * FROM tasks WHERE isCompleted = 0 ORDER BY createdAt DESC")
     fun getAllTasks(): Flow<List<TaskEntity>>
 
     @Query(

@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -220,15 +221,46 @@ class NowViewModel @Inject constructor(
             val stepsToUse = if (task.aiSuggestedSteps.isNotEmpty()) {
                 task.aiSuggestedSteps
             } else {
-                listOf(
-                    "Подготовить материалы и рабочее место для старта",
-                    "Выполнить ключевое действие по задаче",
-                    "Проверить результат и зафиксировать итог"
-                )
+                val t = task.title.lowercase(java.util.Locale.ROOT)
+                when {
+                    t.contains("аккумулятор") || t.contains("купить") || t.contains("заказать") -> listOf(
+                        "Открыть маркетплейс и вбить в поиск «${task.title}»",
+                        "Сравнить 2 лучших варианта по отзывам и положить в корзину",
+                        "Оформить доставку в ближайший пункт выдачи"
+                    )
+                    t.contains("старост") || t.contains("отправить") || t.contains("написать") || t.contains("сообщени") -> listOf(
+                        "Подготовить точную формулировку текста или файл",
+                        "Открыть диалог в мессенджере и отправить сообщение",
+                        "Убедиться, что сообщение прочитано"
+                    )
+                    else -> listOf(
+                        "Подготовить материалы и рабочее окно для задачи «${task.title}»",
+                        "Выполнить основную часть в течение 15 минут без отвлечений",
+                        "Проверить результат и зафиксировать итог"
+                    )
+                }
             }
             val newSubsteps = stepsToUse.map { SubstepItem(text = it, isDone = false) }
             val updatedTask = task.copy(substeps = newSubsteps)
             repository.updateTask(updatedTask)
+        }
+    }
+
+    fun switchToNextAvailableDifficulty(onAllEmpty: () -> Unit = {}) {
+        viewModelScope.launch {
+            val allTasks = repository.getAllTasks().first()
+            val order = listOf(TaskDifficulty.EASY, TaskDifficulty.MEDIUM, TaskDifficulty.HARD)
+            val current = _selectedDifficulty.value
+            val next = order.firstOrNull { diff ->
+                diff != current && allTasks.any { !it.isCompleted && it.difficulty == diff && (it.shelf == ShelfType.SIMPLE_STEPS || it.shelf == ShelfType.BIG_THINGS) }
+            } ?: order.firstOrNull { diff ->
+                allTasks.any { !it.isCompleted && it.difficulty == diff && (it.shelf == ShelfType.SIMPLE_STEPS || it.shelf == ShelfType.BIG_THINGS) }
+            }
+            if (next != null) {
+                selectDifficulty(next)
+            } else {
+                onAllEmpty()
+            }
         }
     }
 

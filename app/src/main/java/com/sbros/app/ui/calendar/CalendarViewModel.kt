@@ -2,6 +2,7 @@ package com.sbros.app.ui.calendar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sbros.app.domain.model.TaskDifficulty
 import com.sbros.app.domain.model.TaskItem
 import com.sbros.app.domain.model.toEntity
 import com.sbros.app.domain.repository.SbrosRepository
@@ -178,24 +179,52 @@ class CalendarViewModel @Inject constructor(
         }
     }
 
-    fun addCalendarEventForSelectedDay() {
+    fun addCalendarTask(
+        title: String,
+        timeText: String,
+        contextCategory: String,
+        difficulty: TaskDifficulty
+    ) {
+        if (title.isBlank()) return
         viewModelScope.launch {
             val cal = _calendarState.value.clone() as Calendar
             cal.set(Calendar.DAY_OF_MONTH, _selectedDay.value)
-            cal.set(Calendar.HOUR_OF_DAY, 16)
-            cal.set(Calendar.MINUTE, 0)
+            val parts = timeText.split(":")
+            val hour = parts.getOrNull(0)?.toIntOrNull() ?: 12
+            val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            cal.set(Calendar.HOUR_OF_DAY, hour)
+            cal.set(Calendar.MINUTE, minute)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
 
+            val dayNum = _selectedDay.value
             val newTask = TaskItem(
                 id = UUID.randomUUID().toString(),
-                title = "Новая встреча в календаре",
-                originalQuote = "Добавлено вручную на ${_selectedDay.value} число",
-                categoryBadge = "Личное",
+                title = "$title ($dayNum число в $timeText)",
+                originalQuote = "Запланировано в календаре на $timeText",
+                categoryBadge = "$contextCategory • ${difficulty.label}",
                 estimatedMinutes = 15,
                 scheduledDateMillis = cal.timeInMillis,
-                scheduledTimeText = "16:00",
-                contextTag = "home"
+                scheduledTimeText = timeText,
+                contextCategory = contextCategory,
+                difficulty = difficulty,
+                contextTag = when {
+                    contextCategory.contains("учеб", ignoreCase = true) -> "study"
+                    contextCategory.contains("покуп", ignoreCase = true) -> "buy"
+                    contextCategory.contains("разработ", ignoreCase = true) -> "code"
+                    else -> "home"
+                }
             )
             repository.insertTasks(listOf(newTask.toEntity()))
         }
+    }
+
+    fun addCalendarEventForSelectedDay() {
+        addCalendarTask(
+            title = "Новая встреча в календаре",
+            timeText = "16:00",
+            contextCategory = "Дом и быт",
+            difficulty = TaskDifficulty.EASY
+        )
     }
 }

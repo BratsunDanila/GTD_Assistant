@@ -41,10 +41,11 @@ class ShelvesViewModel @Inject constructor(
 
     val contextShelves: StateFlow<Map<String, List<TaskItem>>> = repository.getAllTasks()
         .combine(_selectedDifficulty) { tasks, diff ->
+            val active = tasks.filter { !it.isCompleted }
             val filtered = if (diff == "all") {
-                tasks
+                active
             } else {
-                tasks.filter { it.difficulty.name.equals(diff, ignoreCase = true) }
+                active.filter { it.difficulty.name.equals(diff, ignoreCase = true) }
             }
             filtered.groupBy { it.contextCategory.ifBlank { "Дом и быт" } }
         }
@@ -57,6 +58,19 @@ class ShelvesViewModel @Inject constructor(
     fun toggleTaskCompletion(task: TaskItem) {
         viewModelScope.launch {
             repository.updateTask(task.copy(isCompleted = !task.isCompleted))
+        }
+    }
+
+    fun toggleSubstep(taskId: String, index: Int) {
+        viewModelScope.launch {
+            val task = repository.getTaskById(taskId) ?: return@launch
+            if (index in task.substeps.indices) {
+                val current = task.substeps[index]
+                val newSubsteps = task.substeps.toMutableList().apply {
+                    set(index, current.copy(isDone = !current.isDone))
+                }
+                repository.updateTask(task.copy(substeps = newSubsteps))
+            }
         }
     }
 

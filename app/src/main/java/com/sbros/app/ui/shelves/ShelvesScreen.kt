@@ -154,16 +154,17 @@ fun ShelvesScreen(
         // 2. Список контекстных полок (аккордеонов)
         if (contextShelves.isEmpty()) {
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 color = MaterialTheme.colorScheme.surface,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
             ) {
-                Box(modifier = Modifier.padding(16.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.padding(20.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "Нет задач выбранной сложности",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "Все активные задачи в этом фильтре выполнены!",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
             }
@@ -186,7 +187,8 @@ fun ShelvesScreen(
                         tasks.forEach { task ->
                             ContextTaskRow(
                                 task = task,
-                                onClick = { viewModel.toggleTaskCompletion(task) }
+                                onTaskClick = { viewModel.toggleTaskCompletion(task) },
+                                onToggleSubstep = { taskId, stepIdx -> viewModel.toggleSubstep(taskId, stepIdx) }
                             )
                         }
                     }
@@ -336,89 +338,150 @@ private fun ContextShelfAccordion(
 @Composable
 private fun ContextTaskRow(
     task: TaskItem,
-    onClick: () -> Unit
+    onTaskClick: () -> Unit,
+    onToggleSubstep: (taskId: String, stepIndex: Int) -> Unit
 ) {
     Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 9.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onTaskClick() },
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(9.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Круглый чекбокс выполнения
-                Box(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clip(CircleShape)
-                        .background(if (task.isCompleted) Color(0xFF1E6B43) else Color.Transparent)
-                        .then(
-                            if (!task.isCompleted) {
-                                Modifier.background(
-                                    Color.Transparent,
-                                    CircleShape
-                                )
-                            } else Modifier
-                        ),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
-                    if (task.isCompleted) {
-                        Icon(
-                            imageVector = Icons.Rounded.Check,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(11.dp)
-                        )
-                    } else {
-                        Surface(
-                            modifier = Modifier.fillMaxSize(),
-                            shape = CircleShape,
-                            color = Color.Transparent,
-                            border = BorderStroke(1.8.dp, MaterialTheme.colorScheme.onSurfaceVariant)
-                        ) {}
+                    // Круглый чекбокс выполнения
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(if (task.isCompleted) Color(0xFF1E6B43) else Color.Transparent)
+                            .then(
+                                if (!task.isCompleted) {
+                                    Modifier.background(
+                                        Color.Transparent,
+                                        CircleShape
+                                    )
+                                } else Modifier
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (task.isCompleted) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(11.dp)
+                            )
+                        } else {
+                            Surface(
+                                modifier = Modifier.fillMaxSize(),
+                                shape = CircleShape,
+                                color = Color.Transparent,
+                                border = BorderStroke(1.8.dp, MaterialTheme.colorScheme.onSurfaceVariant)
+                            ) {}
+                        }
                     }
+
+                    Text(
+                        text = task.title,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
+                        color = if (task.isCompleted) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
 
-                Text(
-                    text = task.title,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
-                    color = if (task.isCompleted) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    else MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Бейдж уровня сложности
+                Surface(
+                    shape = RoundedCornerShape(99.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                ) {
+                    Text(
+                        text = task.difficulty.label,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            // Вложенные подпункты (substeps)
+            if (task.substeps.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    task.substeps.forEachIndexed { sIdx, st ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { onToggleSubstep(task.id, sIdx) }
+                                .padding(vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (st.isDone) Color(0xFF1E6B43) else Color.Transparent,
+                                border = BorderStroke(
+                                    1.5.dp,
+                                    if (st.isDone) Color(0xFF1E6B43) else MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier.size(13.dp)
+                            ) {
+                                if (st.isDone) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(9.dp)
+                                    )
+                                }
+                            }
 
-            // Бейдж уровня сложности
-            Surface(
-                shape = RoundedCornerShape(99.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh
-            ) {
-                Text(
-                    text = task.difficulty.label,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                )
+                            Text(
+                                text = st.text,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    textDecoration = if (st.isDone) TextDecoration.LineThrough else null
+                                ),
+                                color = if (st.isDone) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
             }
         }
     }

@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.Help
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Psychology
@@ -232,23 +233,14 @@ fun NowScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 3. Мета-строка стопки: контекст + счетчик
+                // 3. Мета-строка стопки: счетчик справа (без слова "Контекст:")
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Контекст: Все дела",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
                     val countScale = remember { Animatable(1f) }
                     LaunchedEffect(remainingInStack) {
                         countScale.animateTo(
@@ -296,28 +288,101 @@ fun NowScreen(
                     }
                 }
 
-                // 4. Центральная 3D колода карточек
-                FocusTaskCard(
-                    task = focusTask,
-                    showCompletionFeedback = showFeedback,
-                    onSkip = { viewModel.onSkipClicked() },
-                    onComplete = { viewModel.onCompleteClicked() },
-                    onDecomposeClick = { showDecomposeSheet = true },
-                    onToggleSubstep = { index ->
-                        focusTask?.let { viewModel.toggleSubstep(it.id, index) }
-                    },
-                    onSimplify = { viewModel.onSimplifyClicked() },
-                    remainingInStack = remainingInStack
-                )
-
-                // 5. Ленивый анализ ИИ по требованию (по клику)
-                if (focusTask != null && !showFeedback && focusTask?.aiDraftContent?.isNotBlank() == true) {
-                    OnDemandAiPanel(
-                        aiDraftContent = focusTask?.aiDraftContent.orEmpty(),
-                        taskId = focusTask?.id,
-                        aiDraftType = focusTask?.aiDraftType.orEmpty()
+                // 4. Колода карточек или пустое состояние выполненности
+                if (focusTask == null && !showFeedback) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 14.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.DoneAll,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(26.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "В этой сложности всё выполнено!",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Выполненные задачи убраны из стопки. Можешь переключить сложность или сбросить новые мысли.",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Button(
+                                onClick = { viewModel.switchToNextAvailableDifficulty(onAllEmpty = onVoiceCaptureClick) },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                modifier = Modifier.padding(top = 4.dp)
+                            ) {
+                                Text(
+                                    text = "Показать другие задачи",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    FocusTaskCard(
+                        task = focusTask,
+                        showCompletionFeedback = showFeedback,
+                        onSkip = { viewModel.onSkipClicked() },
+                        onComplete = { viewModel.onCompleteClicked() },
+                        onDecomposeClick = { showDecomposeSheet = true },
+                        onToggleSubstep = { index ->
+                            focusTask?.let { viewModel.toggleSubstep(it.id, index) }
+                        },
+                        onSimplify = { viewModel.onSimplifyClicked() },
+                        remainingInStack = remainingInStack
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 5. Ленивый анализ ИИ по требованию (доступен для ВСЕХ задач)
+                    if (focusTask != null && !showFeedback) {
+                        val currentTask = focusTask!!
+                        val adviceContent = if (currentTask.aiDraftContent.isNotBlank()) {
+                            currentTask.aiDraftContent
+                        } else {
+                            "Анализ задачи (${currentTask.difficulty.label} • ${currentTask.contextCategory.ifBlank { "Общее" }}):\nЧтобы сделать «${currentTask.title}» быстрее, начни с самого простого подготовительного действия на 2 минуты или разбей задачу кнопкой «Разбить на шаги»."
+                        }
+                        val adviceType = if (currentTask.aiDraftType.isNotBlank()) currentTask.aiDraftType else "Анализ задачи"
+
+                        OnDemandAiPanel(
+                            aiDraftContent = adviceContent,
+                            taskId = currentTask.id,
+                            aiDraftType = adviceType
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
