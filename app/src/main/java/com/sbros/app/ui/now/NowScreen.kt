@@ -25,15 +25,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Help
+import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.CloudDone
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.DoneAll
-import androidx.compose.material.icons.rounded.Help
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -43,6 +47,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import com.sbros.app.domain.model.AppSyncState
+import com.sbros.app.ui.auth.AuthBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -87,12 +94,42 @@ fun NowScreen(
     val isDarkPref by viewModel.isDarkMode.collectAsState()
     val isDark = isDarkPref ?: androidx.compose.foundation.isSystemInDarkTheme()
 
+    val isAuthenticated by viewModel.isAuthenticated.collectAsState()
+    val currentUserEmail by viewModel.currentUserEmail.collectAsState()
+    val currentUserId by viewModel.currentUserId.collectAsState()
+    val syncState by viewModel.syncState.collectAsState()
+    val lastSyncedTime by viewModel.lastSyncedTime.collectAsState()
+
     val remainingInStack = currentTasksList.size
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showThemeDialog by remember { mutableStateOf(false) }
     var showDecomposeSheet by remember { mutableStateOf(false) }
+    var showAuthSheet by remember { mutableStateOf(false) }
+
+    if (showAuthSheet) {
+        AuthBottomSheet(
+            isAuthenticated = isAuthenticated,
+            userEmail = currentUserEmail,
+            userId = currentUserId,
+            syncState = syncState,
+            lastSyncedTime = lastSyncedTime,
+            onSignIn = { email, pass, callback ->
+                viewModel.signIn(email, pass, callback)
+            },
+            onSignUp = { email, pass, name, callback ->
+                viewModel.signUp(email, pass, name, callback)
+            },
+            onSignOut = {
+                viewModel.signOut()
+            },
+            onTriggerSync = {
+                viewModel.triggerSync()
+            },
+            onDismissRequest = { showAuthSheet = false }
+        )
+    }
 
     if (showThemeDialog) {
         ThemeSelectionDialog(
@@ -171,7 +208,7 @@ fun NowScreen(
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Help,
+                                    imageVector = Icons.AutoMirrored.Rounded.Help,
                                     contentDescription = "Как это работает",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(18.dp)
@@ -194,6 +231,58 @@ fun NowScreen(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(18.dp)
                                 )
+                            }
+                        }
+
+                        Surface(
+                            shape = CircleShape,
+                            color = when {
+                                syncState == AppSyncState.SYNCING -> MaterialTheme.colorScheme.primaryContainer
+                                isAuthenticated -> MaterialTheme.colorScheme.surface
+                                else -> MaterialTheme.colorScheme.surface
+                            },
+                            border = BorderStroke(
+                                1.dp,
+                                if (isAuthenticated) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant
+                            )
+                        ) {
+                            IconButton(
+                                onClick = { showAuthSheet = true },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                when {
+                                    syncState == AppSyncState.SYNCING -> {
+                                        CircularProgressIndicator(
+                                            strokeWidth = 2.dp,
+                                            modifier = Modifier.size(16.dp),
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    isAuthenticated && syncState == AppSyncState.OFFLINE -> {
+                                        Icon(
+                                            imageVector = Icons.Rounded.CloudOff,
+                                            contentDescription = "Офлайн-режим",
+                                            tint = MaterialTheme.colorScheme.outline,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    isAuthenticated -> {
+                                        Icon(
+                                            imageVector = Icons.Rounded.CloudDone,
+                                            contentDescription = "Синхронизировано",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    else -> {
+                                        Icon(
+                                            imageVector = Icons.Rounded.AccountCircle,
+                                            contentDescription = "Вход и синхронизация",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

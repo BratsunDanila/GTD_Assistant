@@ -4,6 +4,7 @@ import com.sbros.app.data.local.entity.TaskEntity
 
 data class TaskItem(
     val id: String,
+    val userId: String? = null,
     val projectId: String? = null,
     val orderInProject: Int = 0,
     val originalQuote: String,
@@ -19,6 +20,9 @@ data class TaskItem(
     val skippedCount: Int = 0,
     val lastShownAt: Long = 0L,
     val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val isDeleted: Boolean = false,
+    val syncStatus: SyncStatus = SyncStatus.PENDING_INSERT,
     val aiDraftType: String = "",
     val aiDraftContent: String = "",
     val scheduledDateMillis: Long? = null,
@@ -47,6 +51,7 @@ data class TaskItem(
 
 fun TaskEntity.toDomain(): TaskItem = TaskItem(
     id = id,
+    userId = userId,
     projectId = projectId,
     orderInProject = orderInProject,
     originalQuote = originalQuote,
@@ -62,6 +67,9 @@ fun TaskEntity.toDomain(): TaskItem = TaskItem(
     skippedCount = skippedCount,
     lastShownAt = lastShownAt,
     createdAt = createdAt,
+    updatedAt = updatedAt,
+    isDeleted = isDeleted,
+    syncStatus = syncStatus,
     aiDraftType = aiDraftType,
     aiDraftContent = aiDraftContent,
     scheduledDateMillis = scheduledDateMillis,
@@ -75,6 +83,7 @@ fun TaskEntity.toDomain(): TaskItem = TaskItem(
 
 fun TaskItem.toEntity(): TaskEntity = TaskEntity(
     id = id,
+    userId = userId,
     projectId = projectId,
     orderInProject = orderInProject,
     originalQuote = originalQuote,
@@ -90,6 +99,9 @@ fun TaskItem.toEntity(): TaskEntity = TaskEntity(
     skippedCount = skippedCount,
     lastShownAt = lastShownAt,
     createdAt = createdAt,
+    updatedAt = updatedAt,
+    isDeleted = isDeleted,
+    syncStatus = syncStatus,
     aiDraftType = aiDraftType,
     aiDraftContent = aiDraftContent,
     scheduledDateMillis = scheduledDateMillis,

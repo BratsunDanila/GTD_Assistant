@@ -21,6 +21,8 @@ interface SbrosRepository {
     suspend fun insertProject(project: ProjectEntity)
     suspend fun insertTasks(tasks: List<TaskEntity>)
     suspend fun updateTask(task: TaskItem)
+    suspend fun deleteTask(taskId: String)
+    suspend fun deleteProject(projectId: String)
     suspend fun getTasksForProject(projectId: String): List<TaskItem>
     suspend fun simplifyTask(taskId: String, nextIndex: Int)
     suspend fun skipTask(taskId: String)
@@ -31,4 +33,3 @@ interface SbrosRepository {
     suspend fun updateTaskSchedule(taskId: String, dateMillis: Long?, timeText: String?)
     fun getQuickWinTask(): Flow<TaskItem?>
 }
-

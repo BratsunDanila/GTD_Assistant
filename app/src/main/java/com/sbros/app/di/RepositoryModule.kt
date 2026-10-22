@@ -1,6 +1,8 @@
 package com.sbros.app.di
 
+import com.sbros.app.data.repository.AuthRepositoryImpl
 import com.sbros.app.data.repository.SbrosRepositoryImpl
+import com.sbros.app.domain.repository.AuthRepository
 import com.sbros.app.domain.repository.SbrosRepository
 import dagger.Binds
 import dagger.Module
@@ -17,4 +19,10 @@ abstract class RepositoryModule {
     abstract fun bindSbrosRepository(
         sbrosRepositoryImpl: SbrosRepositoryImpl
     ): SbrosRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(
+        authRepositoryImpl: AuthRepositoryImpl
+    ): AuthRepository
 }

@@ -1,5 +1,6 @@
 package com.sbros.app.data.repository
 
+import com.sbros.app.data.local.PreferencesManager
 import com.sbros.app.data.local.ProjectDao
 import com.sbros.app.data.local.TaskDao
 import com.sbros.app.data.local.entity.ProjectEntity
@@ -7,21 +8,24 @@ import com.sbros.app.data.local.entity.TaskEntity
 import com.sbros.app.domain.model.EnergyLevel
 import com.sbros.app.domain.model.ProjectWithFirstStep
 import com.sbros.app.domain.model.ShelfType
+import com.sbros.app.domain.model.SyncStatus
+import com.sbros.app.domain.model.TaskDifficulty
 import com.sbros.app.domain.model.TaskItem
 import com.sbros.app.domain.model.toDomain
+import com.sbros.app.domain.model.toEntity
 import com.sbros.app.domain.repository.SbrosRepository
+import com.sbros.app.sync.SyncManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-import com.sbros.app.domain.model.TaskDifficulty
-import com.sbros.app.domain.model.toEntity
-
 @Singleton
 class SbrosRepositoryImpl @Inject constructor(
     private val taskDao: TaskDao,
-    private val projectDao: ProjectDao
+    private val projectDao: ProjectDao,
+    private val preferencesManager: PreferencesManager,
+    private val syncManager: SyncManager
 ) : SbrosRepository {
 
     override fun getAllTasks(): Flow<List<TaskItem>> {
@@ -41,7 +45,24 @@ class SbrosRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateTask(task: TaskItem) {
-        taskDao.updateTask(task.toEntity())
+        val currentUserId = preferencesManager.getUserId()
+        val entity = task.toEntity().copy(
+            userId = task.userId ?: currentUserId,
+            syncStatus = if (task.syncStatus == SyncStatus.PENDING_INSERT) SyncStatus.PENDING_INSERT else SyncStatus.PENDING_UPDATE,
+            updatedAt = System.currentTimeMillis()
+        )
+        taskDao.updateTask(entity)
+        syncManager.triggerSync()
+    }
+
+    override suspend fun deleteTask(taskId: String) {
+        taskDao.softDeleteTask(taskId)
+        syncManager.triggerSync()
+    }
+
+    override suspend fun deleteProject(projectId: String) {
+        projectDao.softDeleteProject(projectId)
+        syncManager.triggerSync()
     }
 
     override fun getTasksByShelf(shelf: ShelfType): Flow<List<TaskItem>> {
@@ -79,11 +100,27 @@ class SbrosRepositoryImpl @Inject constructor(
     }
 
     override suspend fun insertProject(project: ProjectEntity) {
-        projectDao.insertProject(project)
+        val currentUserId = preferencesManager.getUserId()
+        val projectWithUser = if (project.userId == null && currentUserId != null) {
+            project.copy(userId = currentUserId, syncStatus = SyncStatus.PENDING_INSERT)
+        } else {
+            project
+        }
+        projectDao.insertProject(projectWithUser)
+        syncManager.triggerSync()
     }
 
     override suspend fun insertTasks(tasks: List<TaskEntity>) {
-        taskDao.insertTasks(tasks)
+        val currentUserId = preferencesManager.getUserId()
+        val tasksWithUser = tasks.map {
+            if (it.userId == null && currentUserId != null) {
+                it.copy(userId = currentUserId, syncStatus = SyncStatus.PENDING_INSERT)
+            } else {
+                it
+            }
+        }
+        taskDao.insertTasks(tasksWithUser)
+        syncManager.triggerSync()
     }
 
     override suspend fun getTasksForProject(projectId: String): List<TaskItem> {
@@ -92,18 +129,25 @@ class SbrosRepositoryImpl @Inject constructor(
 
     override suspend fun simplifyTask(taskId: String, nextIndex: Int) {
         taskDao.updateSimplifyIndex(taskId, nextIndex)
+        syncManager.triggerSync()
     }
 
     override suspend fun skipTask(taskId: String) {
         taskDao.skipTask(taskId, System.currentTimeMillis())
+        syncManager.triggerSync()
     }
 
     override suspend fun completeTask(taskId: String) {
         taskDao.setTaskCompleted(taskId, true)
+        syncManager.triggerSync()
     }
 
     override suspend fun applySoftAmnesty(): Int {
-        return taskDao.applySoftAmnesty(System.currentTimeMillis())
+        val count = taskDao.applySoftAmnesty(System.currentTimeMillis())
+        if (count > 0) {
+            syncManager.triggerSync()
+        }
+        return count
     }
 
     override fun getScheduledTasks(): Flow<List<TaskItem>> {
@@ -114,12 +158,12 @@ class SbrosRepositoryImpl @Inject constructor(
         return taskDao.getTasksForDate(startOfDay, endOfDay).map { list -> list.map { it.toDomain() } }
     }
 
-    override suspend fun updateTaskSchedule(taskId: String, dateMillis: Long?, timeText: String?) {
-        taskDao.updateTaskSchedule(taskId, dateMillis, timeText)
-    }
-
     override fun getQuickWinTask(): Flow<TaskItem?> {
         return taskDao.getQuickWinTask().map { it?.toDomain() }
     }
-}
 
+    override suspend fun updateTaskSchedule(taskId: String, dateMillis: Long?, timeText: String?) {
+        taskDao.updateTaskSchedule(taskId, dateMillis, timeText)
+        syncManager.triggerSync()
+    }
+}

@@ -4,6 +4,7 @@ import androidx.room.TypeConverter
 import com.sbros.app.domain.model.EnergyLevel
 import com.sbros.app.domain.model.ShelfType
 import com.sbros.app.domain.model.SubstepItem
+import com.sbros.app.domain.model.SyncStatus
 import com.sbros.app.domain.model.TaskDifficulty
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -69,6 +70,19 @@ class Converters {
             } catch (e: Exception) {
                 TaskDifficulty.EASY
             }
+        }
+    }
+
+    @TypeConverter
+    fun fromSyncStatus(value: SyncStatus?): String = (value ?: SyncStatus.PENDING_INSERT).name
+
+    @TypeConverter
+    fun toSyncStatus(value: String?): SyncStatus {
+        if (value.isNullOrBlank()) return SyncStatus.PENDING_INSERT
+        return try {
+            SyncStatus.valueOf(value)
+        } catch (e: Exception) {
+            SyncStatus.PENDING_INSERT
         }
     }
 

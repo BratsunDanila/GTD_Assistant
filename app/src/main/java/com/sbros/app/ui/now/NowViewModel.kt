@@ -49,7 +49,9 @@ class NowViewModel @Inject constructor(
     private val saveParsedTasksUseCase: SaveParsedTasksUseCase,
     private val aiParserApi: com.sbros.app.data.remote.AiParserApi,
     private val repository: com.sbros.app.domain.repository.SbrosRepository,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val authRepository: com.sbros.app.domain.repository.AuthRepository,
+    private val syncManager: com.sbros.app.sync.SyncManager
 ) : ViewModel() {
 
     fun processMindDump(rawText: String) {
@@ -186,6 +188,73 @@ class NowViewModel @Inject constructor(
             started = SharingStarted.Eagerly,
             initialValue = false
         )
+
+    val isAuthenticated: StateFlow<Boolean> = authRepository.isAuthenticated
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
+    val currentUserEmail: StateFlow<String?> = authRepository.currentUserEmail
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    val currentUserId: StateFlow<String?> = authRepository.currentUserId
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    val isGuestMode: StateFlow<Boolean> = authRepository.isGuestMode
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = true
+        )
+
+    val syncState: StateFlow<com.sbros.app.domain.model.AppSyncState> = syncManager.syncState
+
+    val lastSyncedTime: StateFlow<Long> = preferencesManager.lastSyncedTimeFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0L
+        )
+
+    fun signIn(email: String, pass: String, onResult: (com.sbros.app.domain.repository.AuthResult) -> Unit) {
+        viewModelScope.launch {
+            val res = authRepository.signIn(email, pass)
+            onResult(res)
+        }
+    }
+
+    fun signUp(email: String, pass: String, name: String, onResult: (com.sbros.app.domain.repository.AuthResult) -> Unit) {
+        viewModelScope.launch {
+            val res = authRepository.signUp(email, pass, name)
+            onResult(res)
+        }
+    }
+
+    fun signOut() {
+        viewModelScope.launch {
+            authRepository.signOut()
+        }
+    }
+
+    fun continueAsGuest() {
+        viewModelScope.launch {
+            authRepository.continueAsGuest()
+        }
+    }
+
+    fun triggerSync() {
+        syncManager.triggerSync()
+    }
 
     fun completeOnboarding() {
         viewModelScope.launch {
