@@ -14,7 +14,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,11 +34,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.AutoFixHigh
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.East
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Swipe
 import androidx.compose.material.icons.rounded.Tune
@@ -86,10 +87,12 @@ import com.sbros.app.domain.repository.AuthResult
 
 /**
  * Полноэкранный 4-шаговый экран онбординга:
- * - Слайд 1: «Выговори кашу из головы»
- * - Слайд 2: «По одной задаче за раз»
- * - Слайд 3: «Настрой под себя» (Имя + цветовая палитра)
- * - Слайд 4: «Вход и Регистрация» (с опцией «Продолжить без аккаунта»)
+ * - Слайд 1 (Шаг 0): «Выговори кашу из головы»
+ * - Слайд 2 (Шаг 1): «По одной задаче за раз»
+ * - Слайд 3 (Шаг 2): «Вход и Регистрация» (с опцией «Продолжить без аккаунта»)
+ * - Слайд 4 (Шаг 3):
+ *     - Если гость: «Как к тебе обращаться на главном экране» + палитра
+ *     - Если вошел/зарегистрировался: экран выбора цветовой палитры (без слова Material 3)
  */
 @Composable
 fun OnboardingScreen(
@@ -104,6 +107,7 @@ fun OnboardingScreen(
     modifier: Modifier = Modifier
 ) {
     var step by remember { mutableIntStateOf(0) }
+    var isGuest by remember { mutableStateOf(true) }
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -166,13 +170,13 @@ fun OnboardingScreen(
                 }
             }
 
-            // Центральная контентная зона со слайдами (строго горизонтальная анимация)
+            // Центральная контентная зона со слайдами: СТРОГО ПО ЦЕНТРУ и строго горизонтальная анимация
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.TopCenter
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
             ) {
                 AnimatedContent(
                     targetState = step,
@@ -193,21 +197,29 @@ fun OnboardingScreen(
                     when (currentStep) {
                         0 -> OnboardingSlide1()
                         1 -> OnboardingSlide2()
-                        2 -> OnboardingSlide3(
-                            name = currentName,
-                            palette = currentPalette,
-                            onNameChange = onNameChange,
-                            onPaletteSelect = onPaletteSelect
-                        )
-                        3 -> OnboardingSlideAuth(
+                        2 -> OnboardingSlideAuth(
                             initialName = currentName,
                             onSignIn = onSignIn,
                             onSignUp = onSignUp,
                             onContinueAsGuest = {
                                 onContinueAsGuest()
-                                onComplete()
+                                isGuest = true
+                                step = 3
                             },
-                            onAuthSuccess = onComplete
+                            onAuthSuccess = { enteredName ->
+                                if (enteredName.isNotBlank()) {
+                                    onNameChange(enteredName)
+                                }
+                                isGuest = false
+                                step = 3
+                            }
+                        )
+                        3 -> OnboardingSlidePersonalization(
+                            isGuest = isGuest,
+                            name = currentName,
+                            palette = currentPalette,
+                            onNameChange = onNameChange,
+                            onPaletteSelect = onPaletteSelect
                         )
                     }
                 }
@@ -245,7 +257,7 @@ fun OnboardingScreen(
                     }
                 }
 
-                if (step < 3) {
+                if (step < 2) {
                     Button(
                         onClick = { step++ },
                         shape = RoundedCornerShape(16.dp),
@@ -258,7 +270,7 @@ fun OnboardingScreen(
                             .height(52.dp)
                     ) {
                         Text(
-                            text = if (step == 2) "К аккаунту" else "Далее",
+                            text = "Далее",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
@@ -271,6 +283,32 @@ fun OnboardingScreen(
                             modifier = Modifier.size(18.dp)
                         )
                     }
+                } else if (step == 3) {
+                    Button(
+                        onClick = onComplete,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                    ) {
+                        Text(
+                            text = "Начать работу",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }
@@ -278,174 +316,179 @@ fun OnboardingScreen(
 }
 
 /**
- * Слайд 1: «Выговори кашу из головы»
+ * Слайд 1: «Выговори кашу из головы» (выровнен по центру)
  */
 @Composable
 private fun OnboardingSlide1() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        Surface(
-            modifier = Modifier.size(56.dp),
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.primaryContainer
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Rounded.GraphicEq,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
-        }
-
-        Text(
-            text = "Выговори кашу из головы",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 26.sp,
-                letterSpacing = (-0.02).sp
-            ),
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Text(
-            text = "Не нужно придумывать папки и формулировки. Говори всё подряд — ИИ сам отсеет усталость и выделит конкретные шаги.",
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontSize = 13.5.sp,
-                lineHeight = 19.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        // Демо-карточка (Что ты говоришь -> Что создает ИИ)
-        Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-            tonalElevation = 2.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            Surface(
+                modifier = Modifier.size(56.dp),
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
-                Text(
-                    text = "ЧТО ТЫ ГОВОРИШЬ:",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.5.sp,
-                        letterSpacing = 0.4.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Text(
-                    text = buildAnnotatedString {
-                        withStyle(
-                            SpanStyle(
-                                textDecoration = TextDecoration.LineThrough,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
-                            )
-                        ) {
-                            append("«Блин, ничего не успеваю...»")
-                        }
-                        append(" Надо ")
-                        withStyle(
-                            SpanStyle(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            append("скинуть тему старосте")
-                        }
-                        append(" и в пятницу в 14:00 ")
-                        withStyle(
-                            SpanStyle(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            append("созвон с научруком")
-                        }
-                    },
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 12.5.sp,
-                        lineHeight = 18.sp
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.GraphicEq,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(30.dp)
                     )
-                )
+                }
+            }
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerLow)
+            Text(
+                text = "Выговори кашу из головы",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 26.sp,
+                    letterSpacing = (-0.02).sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
 
-                Text(
-                    text = "ЧТО СОЗДАЕТ ИИ:",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.5.sp,
-                        letterSpacing = 0.4.sp
-                    ),
-                    color = Color(0xFF1E6B43)
-                )
+            Text(
+                text = "Не нужно придумывать папки и формулировки. Говори всё подряд — ИИ сам отсеет усталость и выделит конкретные шаги.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 13.5.sp,
+                    lineHeight = 19.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
+            // Демо-карточка (Что ты говоришь -> Что создает ИИ)
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                tonalElevation = 2.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "1. Отправить тему старосте",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp
-                            )
-                        )
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh
-                        ) {
-                            Text(
-                                text = "Механика",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
+                    Text(
+                        text = "ЧТО ТЫ ГОВОРИШЬ:",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.5.sp,
+                            letterSpacing = 0.4.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "2. Созвон с научруком",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp
-                            )
+                    Text(
+                        text = buildAnnotatedString {
+                            withStyle(
+                                SpanStyle(
+                                    textDecoration = TextDecoration.LineThrough,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                                )
+                            ) {
+                                append("«Блин, ничего не успеваю...»")
+                            }
+                            append(" Надо ")
+                            withStyle(
+                                SpanStyle(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                append("скинуть тему старосте")
+                            }
+                            append(" и в пятницу в 14:00 ")
+                            withStyle(
+                                SpanStyle(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                append("созвон с научруком")
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.5.sp,
+                            lineHeight = 18.sp
                         )
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerLow)
+
+                    Text(
+                        text = "ЧТО СОЗДАЕТ ИИ:",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.5.sp,
+                            letterSpacing = 0.4.sp
+                        ),
+                        color = Color(0xFF1E6B43)
+                    )
+
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Пт, 14:00",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 10.5.sp
-                                ),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                text = "1. Отправить тему старосте",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp
+                                )
                             )
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh
+                            ) {
+                                Text(
+                                    text = "Механика",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "2. Созвон с научруком",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp
+                                )
+                            )
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    text = "Пт, 14:00",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.5.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -455,277 +498,144 @@ private fun OnboardingSlide1() {
 }
 
 /**
- * Слайд 2: «По одной задаче за раз»
+ * Слайд 2: «По одной задаче за раз» (выровнен по центру)
  */
 @Composable
 private fun OnboardingSlide2() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        Surface(
-            modifier = Modifier.size(56.dp),
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.primaryContainer
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Rounded.Swipe,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
-        }
-
-        Text(
-            text = "По одной задаче за раз",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 26.sp,
-                letterSpacing = (-0.02).sp
-            ),
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Text(
-            text = "Никаких пугающих списков из 50 дел. Выбирай свое состояние, а приложение подаст ровно одну подходящую карточку.",
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontSize = 13.5.sp,
-                lineHeight = 19.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        // Памятка по жестам
-        Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-            tonalElevation = 2.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+            Surface(
+                modifier = Modifier.size(56.dp),
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Rounded.East,
+                        imageVector = Icons.Rounded.Swipe,
                         contentDescription = null,
-                        tint = Color(0xFF1E6B43),
-                        modifier = Modifier.size(22.dp)
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(30.dp)
                     )
-                    Column {
-                        Text(
-                            text = "Свайп вправо — Готово",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
-                        )
-                        Text(
-                            text = "Задача мгновенно закрывается",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.West,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Column {
-                        Text(
-                            text = "Свайп влево — Потом",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
-                        )
-                        Text(
-                            text = "Отложить без чувства вины и красных дат",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AutoFixHigh,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Column {
-                        Text(
-                            text = "Кнопка 1/3 — Сделать проще",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
-                        )
-                        Text(
-                            text = "ИИ дробит задачу до микро-шага на 1 минуту",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                 }
             }
-        }
-    }
-}
 
-/**
- * Слайд 3: «Настрой под себя»
- */
-@Composable
-private fun OnboardingSlide3(
-    name: String,
-    palette: ThemePalette,
-    onNameChange: (String) -> Unit,
-    onPaletteSelect: (ThemePalette) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Surface(
-            modifier = Modifier.size(56.dp),
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.primaryContainer
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Rounded.Tune,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
-        }
+            Text(
+                text = "По одной задаче за раз",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 26.sp,
+                    letterSpacing = (-0.02).sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
 
-        Text(
-            text = "Настрой под себя",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 26.sp,
-                letterSpacing = (-0.02).sp
-            ),
-            color = MaterialTheme.colorScheme.onSurface
-        )
+            Text(
+                text = "Никаких пугающих списков из 50 дел. Выбирай свое состояние, а приложение подаст ровно одну подходящую карточку.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 13.5.sp,
+                    lineHeight = 19.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-        Text(
-            text = "Как к тебе обращаться на главном экране?",
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-            tonalElevation = 2.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            // Памятка по жестам
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                tonalElevation = 2.dp,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // Поле ввода имени
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    BasicTextField(
-                        value = name,
-                        onValueChange = onNameChange,
-                        singleLine = true,
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Text(
-                    text = "ЦВЕТОВАЯ ПАЛИТРА MATERIAL 3:",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.5.sp,
-                        letterSpacing = 0.4.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                // Сетка 2x2 палитр
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        PaletteButton(
-                            title = "Лаванда",
-                            color = Color(0xFF554F87),
-                            isSelected = palette == ThemePalette.LAVENDER,
-                            onClick = { onPaletteSelect(ThemePalette.LAVENDER) },
-                            modifier = Modifier.weight(1f)
+                        Icon(
+                            imageVector = Icons.Rounded.East,
+                            contentDescription = null,
+                            tint = Color(0xFF1E6B43),
+                            modifier = Modifier.size(22.dp)
                         )
-                        PaletteButton(
-                            title = "Шалфей",
-                            color = Color(0xFF336746),
-                            isSelected = palette == ThemePalette.SAGE,
-                            onClick = { onPaletteSelect(ThemePalette.SAGE) },
-                            modifier = Modifier.weight(1f)
-                        )
+                        Column {
+                            Text(
+                                text = "Свайп вправо — Готово",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            )
+                            Text(
+                                text = "Задача мгновенно закрывается",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
+
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        PaletteButton(
-                            title = "Терракота",
-                            color = Color(0xFF8B4A27),
-                            isSelected = palette == ThemePalette.CLAY,
-                            onClick = { onPaletteSelect(ThemePalette.CLAY) },
-                            modifier = Modifier.weight(1f)
+                        Icon(
+                            imageVector = Icons.Rounded.West,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp)
                         )
-                        PaletteButton(
-                            title = "Океан",
-                            color = Color(0xFF176678),
-                            isSelected = palette == ThemePalette.OCEAN,
-                            onClick = { onPaletteSelect(ThemePalette.OCEAN) },
-                            modifier = Modifier.weight(1f)
+                        Column {
+                            Text(
+                                text = "Свайп влево — Потом",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            )
+                            Text(
+                                text = "Отложить без чувства вины и красных дат",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.AutoFixHigh,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
                         )
+                        Column {
+                            Text(
+                                text = "Кнопка 1/3 — Сделать проще",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            )
+                            Text(
+                                text = "ИИ дробит задачу до микро-шага на 1 минуту",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
@@ -734,7 +644,7 @@ private fun OnboardingSlide3(
 }
 
 /**
- * Слайд 4: Экран входа и регистрации сразу после 3 ознакомительных экранов.
+ * Слайд 3: Экран входа и регистрации (выровнен по центру)
  */
 @Composable
 private fun OnboardingSlideAuth(
@@ -742,9 +652,9 @@ private fun OnboardingSlideAuth(
     onSignIn: (email: String, pass: String, (AuthResult) -> Unit) -> Unit,
     onSignUp: (email: String, pass: String, name: String, (AuthResult) -> Unit) -> Unit,
     onContinueAsGuest: () -> Unit,
-    onAuthSuccess: () -> Unit
+    onAuthSuccess: (enteredName: String) -> Unit
 ) {
-    var selectedTab by remember { mutableIntStateOf(1) } // По умолчанию вкладка "Регистрация"
+    var selectedTab by remember { mutableIntStateOf(1) } // По умолчанию "Регистрация"
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var name by remember { mutableStateOf(initialName) }
@@ -752,209 +662,365 @@ private fun OnboardingSlideAuth(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        Surface(
-            modifier = Modifier.size(52.dp),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.primaryContainer
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Rounded.Cloud,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(28.dp)
+            Surface(
+                modifier = Modifier.size(52.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.Cloud,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = "Синхронизация и аккаунт",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 24.sp,
+                    letterSpacing = (-0.02).sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Text(
+                text = "Приложение полностью работает без интернета. Создайте аккаунт для облачной базы данных Supabase или продолжайте как гость.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            // Табы: Регистрация / Вход
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.clip(RoundedCornerShape(12.dp))
+            ) {
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1; errorMessage = null },
+                    text = { Text("Регистрация", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium) }
+                )
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0; errorMessage = null },
+                    text = { Text("Вход", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium) }
                 )
             }
-        }
 
-        Text(
-            text = "Синхронизация и аккаунт",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
-                letterSpacing = (-0.02).sp
-            ),
-            color = MaterialTheme.colorScheme.onSurface
-        )
+            if (selectedTab == 1) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Ваше имя") },
+                    leadingIcon = {
+                        Icon(imageVector = Icons.Rounded.Person, contentDescription = null)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
-        Text(
-            text = "Приложение полностью работает без интернета. Создайте аккаунт для облачной базы данных Supabase или продолжайте как гость.",
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontSize = 13.sp,
-                lineHeight = 18.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        // Табы: Регистрация / Вход
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.clip(RoundedCornerShape(12.dp))
-        ) {
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1; errorMessage = null },
-                text = { Text("Регистрация", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium) }
-            )
-            Tab(
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0; errorMessage = null },
-                text = { Text("Вход", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium) }
-            )
-        }
-
-        if (selectedTab == 1) {
             OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Ваше имя") },
-                leadingIcon = {
-                    Icon(imageVector = Icons.Rounded.Person, contentDescription = null)
+                value = email,
+                onValueChange = {
+                    email = it
+                    errorMessage = null
                 },
+                label = { Text("Электронная почта") },
+                leadingIcon = {
+                    Icon(imageVector = Icons.Rounded.Email, contentDescription = null)
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
             )
-        }
 
-        OutlinedTextField(
-            value = email,
-            onValueChange = {
-                email = it
-                errorMessage = null
-            },
-            label = { Text("Электронная почта") },
-            leadingIcon = {
-                Icon(imageVector = Icons.Rounded.Email, contentDescription = null)
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth()
-        )
+            OutlinedTextField(
+                value = password,
+                onValueChange = {
+                    password = it
+                    errorMessage = null
+                },
+                label = { Text("Пароль (от 6 символов)") },
+                leadingIcon = {
+                    Icon(imageVector = Icons.Rounded.Lock, contentDescription = null)
+                },
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                            contentDescription = null
+                        )
+                    }
+                },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        OutlinedTextField(
-            value = password,
-            onValueChange = {
-                password = it
-                errorMessage = null
-            },
-            label = { Text("Пароль (от 6 символов)") },
-            leadingIcon = {
-                Icon(imageVector = Icons.Rounded.Lock, contentDescription = null)
-            },
-            trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(
-                        imageVector = if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                        contentDescription = null
+            AnimatedVisibility(visible = errorMessage != null) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = errorMessage ?: "",
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                        modifier = Modifier.padding(12.dp)
                     )
                 }
-            },
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        AnimatedVisibility(visible = errorMessage != null) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.errorContainer,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = errorMessage ?: "",
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                    modifier = Modifier.padding(12.dp)
-                )
             }
-        }
 
-        Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
-        // Кнопка Вход / Регистрация
-        Button(
-            onClick = {
-                isLoading = true
-                errorMessage = null
-                if (selectedTab == 1) {
-                    onSignUp(email, password, name) { result ->
-                        isLoading = false
-                        when (result) {
-                            is AuthResult.Success -> onAuthSuccess()
-                            is AuthResult.Error -> errorMessage = result.message
+            // Кнопка Вход / Регистрация
+            Button(
+                onClick = {
+                    isLoading = true
+                    errorMessage = null
+                    if (selectedTab == 1) {
+                        onSignUp(email, password, name) { result ->
+                            isLoading = false
+                            when (result) {
+                                is AuthResult.Success -> onAuthSuccess(name.trim())
+                                is AuthResult.Error -> errorMessage = result.message
+                            }
+                        }
+                    } else {
+                        onSignIn(email, password) { result ->
+                            isLoading = false
+                            when (result) {
+                                is AuthResult.Success -> onAuthSuccess("")
+                                is AuthResult.Error -> errorMessage = result.message
+                            }
                         }
                     }
+                },
+                enabled = !isLoading && email.isNotBlank() && password.length >= 6,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(22.dp)
+                    )
                 } else {
-                    onSignIn(email, password) { result ->
-                        isLoading = false
-                        when (result) {
-                            is AuthResult.Success -> onAuthSuccess()
-                            is AuthResult.Error -> errorMessage = result.message
+                    Text(
+                        text = if (selectedTab == 1) "Создать аккаунт и войти" else "Войти",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.5.sp
+                    )
+                }
+            }
+
+            // Кнопка Продолжить без аккаунта
+            OutlinedButton(
+                onClick = onContinueAsGuest,
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+            ) {
+                Text(
+                    text = "Продолжить без аккаунта (Гость)",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = "Все дела останутся в телефоне и автоматически загрузятся в облако, если решите зарегистрироваться позже.",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 14.sp),
+                color = MaterialTheme.colorScheme.outline,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Слайд 4: Настройка имени (если гость) и палитры (выровнен по центру)
+ */
+@Composable
+private fun OnboardingSlidePersonalization(
+    isGuest: Boolean,
+    name: String,
+    palette: ThemePalette,
+    onNameChange: (String) -> Unit,
+    onPaletteSelect: (ThemePalette) -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(56.dp),
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isGuest) Icons.Rounded.Tune else Icons.Rounded.Palette,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = if (isGuest) "Как к тебе обращаться?" else "Выбери оформление",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 26.sp,
+                    letterSpacing = (-0.02).sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Text(
+                text = if (isGuest) {
+                    "Как к тебе обращаться на главном экране?"
+                } else {
+                    "Рады знакомству, ${name.ifBlank { "пользователь" }}! Настрой цветовую гамму под себя."
+                },
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                tonalElevation = 2.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Если гость — показываем поле ввода имени
+                    if (isGuest) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainer)
+                                .padding(horizontal = 14.dp, vertical = 12.dp)
+                        ) {
+                            BasicTextField(
+                                value = name,
+                                onValueChange = onNameChange,
+                                singleLine = true,
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
+                    // Заголовок без слова "Material 3"
+                    Text(
+                        text = "ЦВЕТОВАЯ ПАЛИТРА:",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.5.sp,
+                            letterSpacing = 0.4.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Сетка 2x2 палитр
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            PaletteButton(
+                                title = "Лаванда",
+                                color = Color(0xFF554F87),
+                                isSelected = palette == ThemePalette.LAVENDER,
+                                onClick = { onPaletteSelect(ThemePalette.LAVENDER) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            PaletteButton(
+                                title = "Шалфей",
+                                color = Color(0xFF336746),
+                                isSelected = palette == ThemePalette.SAGE,
+                                onClick = { onPaletteSelect(ThemePalette.SAGE) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            PaletteButton(
+                                title = "Терракота",
+                                color = Color(0xFF8B4A27),
+                                isSelected = palette == ThemePalette.CLAY,
+                                onClick = { onPaletteSelect(ThemePalette.CLAY) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            PaletteButton(
+                                title = "Океан",
+                                color = Color(0xFF176678),
+                                isSelected = palette == ThemePalette.OCEAN,
+                                onClick = { onPaletteSelect(ThemePalette.OCEAN) },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
                 }
-            },
-            enabled = !isLoading && email.isNotBlank() && password.length >= 6,
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.dp,
-                    modifier = Modifier.size(22.dp)
-                )
-            } else {
-                Text(
-                    text = if (selectedTab == 1) "Создать аккаунт и войти" else "Войти",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.5.sp
-                )
             }
         }
-
-        // Кнопка Продолжить без аккаунта
-        OutlinedButton(
-            onClick = onContinueAsGuest,
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-        ) {
-            Text(
-                text = "Продолжить без аккаунта (Гость)",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Text(
-            text = "Все дела останутся в телефоне и автоматически загрузятся в облако, если решите зарегистрироваться позже.",
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 14.sp),
-            color = MaterialTheme.colorScheme.outline,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp)
-        )
     }
 }
 
