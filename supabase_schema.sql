@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     email TEXT,
     display_name TEXT DEFAULT 'Данила',
     avatar_url TEXT,
+    theme_palette TEXT DEFAULT 'LAVENDER',
+    is_dark_mode BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -26,6 +28,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 CREATE TABLE IF NOT EXISTS public.contexts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    tag TEXT NOT NULL DEFAULT 'home',
     name TEXT NOT NULL,
     icon TEXT NOT NULL DEFAULT 'label',
     color_hex TEXT DEFAULT '#554F87',
@@ -40,7 +43,7 @@ CREATE TABLE IF NOT EXISTS public.contexts (
 -- Хранит многоэтапные проекты (например: "Курсовая работа")
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.projects (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     is_archived BOOLEAN NOT NULL DEFAULT false,
@@ -54,9 +57,9 @@ CREATE TABLE IF NOT EXISTS public.projects (
 -- Центральная таблица GTD-системы
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.tasks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
+    project_id TEXT REFERENCES public.projects(id) ON DELETE SET NULL,
     order_in_project INT NOT NULL DEFAULT 0,
     title TEXT NOT NULL,
     original_quote TEXT DEFAULT '',
@@ -64,6 +67,8 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     shelf TEXT NOT NULL DEFAULT 'SIMPLE_STEPS', -- SIMPLE_STEPS, BIG_THINGS, WAITING, SOMEDAY, REFERENCE
     is_completed BOOLEAN NOT NULL DEFAULT false,
     current_simplify_index INT NOT NULL DEFAULT 0,
+    simplified_steps JSONB DEFAULT '[]'::jsonb,
+    ai_suggested_steps JSONB DEFAULT '[]'::jsonb,
     ai_hint TEXT DEFAULT '',
     category_badge TEXT DEFAULT '',
     estimated_minutes INT NOT NULL DEFAULT 5,
@@ -87,11 +92,11 @@ CREATE TABLE IF NOT EXISTS public.tasks (
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.task_substeps (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
+    task_id TEXT NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     text TEXT NOT NULL,
-    is_done BOOLEAN NOT NULL DEFAULT false,
-    sort_order INT NOT NULL DEFAULT 0,
+    is_completed BOOLEAN NOT NULL DEFAULT false,
+    order_in_task INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     is_deleted BOOLEAN NOT NULL DEFAULT false
@@ -186,15 +191,17 @@ BEGIN
         NEW.id,
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'display_name', 'Данила')
-    );
+    )
+    ON CONFLICT (id) DO NOTHING;
 
     -- Создаем 4 стандартных контекста GTD для нового пользователя
-    INSERT INTO public.contexts (user_id, name, icon, sort_order)
+    INSERT INTO public.contexts (user_id, tag, name, icon, sort_order)
     VALUES
-        (NEW.id, 'Учеба и вуз', 'school', 1),
-        (NEW.id, 'Разработка и код', 'code', 2),
-        (NEW.id, 'Покупки и заказы', 'shopping_bag', 3),
-        (NEW.id, 'Дом и быт', 'home', 4);
+        (NEW.id, 'study', 'Учеба и вуз', 'school', 1),
+        (NEW.id, 'code', 'Разработка и код', 'code', 2),
+        (NEW.id, 'buy', 'Покупки и заказы', 'shopping_bag', 3),
+        (NEW.id, 'home', 'Дом и быт', 'home', 4)
+    ON CONFLICT DO NOTHING;
 
     RETURN NEW;
 END;

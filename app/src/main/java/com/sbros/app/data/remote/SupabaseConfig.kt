@@ -2,14 +2,12 @@ package com.sbros.app.data.remote
 
 object SupabaseConfig {
     /**
-     * URL вашего проекта Supabase.
-     * Замените на URL вашего реального проекта, созданного на supabase.com.
-     * Например: "https://xyzcompany.supabase.co"
+     * URL проекта Supabase пользователя.
      */
-    const val DEFAULT_URL: String = "https://your-project-id.supabase.co"
+    const val DEFAULT_URL: String = "https://chzgghmczmnvojapwsua.supabase.co"
 
     /**
-     * Публичный анонимный ключ (anon / public key) из настроек проекта Supabase -> Project Settings -> API.
+     * Публичный анонимный ключ (anon / public key) из настроек проекта Supabase.
      */
-    const val DEFAULT_ANON_KEY: String = "sbp_demo_placeholder_anon_key"
+    const val DEFAULT_ANON_KEY: String = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoemdnaG1jem1udm9qYXB3c3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2Njg2NzUsImV4cCI6MjEwODI0NDY3NX0.ZOP-BlhsfcXQKpfSvriZXHoq4Q9jeb1J_DWeDj13U2E"
 }
