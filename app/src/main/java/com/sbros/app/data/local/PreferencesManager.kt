@@ -77,7 +77,7 @@ class PreferencesManager @Inject constructor(
     }
 
     val isDarkModeFlow: Flow<Boolean?> = context.dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.DARK_MODE]
+        preferences[PreferencesKeys.DARK_MODE] ?: false
     }
 
     suspend fun setUserName(name: String) {

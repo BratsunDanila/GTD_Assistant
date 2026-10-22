@@ -67,6 +67,15 @@ fun SbrosAppShell(
             currentPalette = currentPalette,
             onNameChange = { nowViewModel.setUserName(it) },
             onPaletteSelect = { nowViewModel.setThemePalette(it) },
+            onSignIn = { email, pass, callback ->
+                nowViewModel.signIn(email, pass, callback)
+            },
+            onSignUp = { email, pass, name, callback ->
+                nowViewModel.signUp(email, pass, name, callback)
+            },
+            onContinueAsGuest = {
+                nowViewModel.continueAsGuest()
+            },
             onComplete = {
                 nowViewModel.completeOnboarding()
                 showOnboardingDialog = false

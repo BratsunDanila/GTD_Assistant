@@ -25,9 +25,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            val palette by preferencesManager.themePaletteFlow.collectAsState(initial = ThemePalette.SAGE)
-            val isDarkPref by preferencesManager.isDarkModeFlow.collectAsState(initial = null)
-            val darkTheme = isDarkPref ?: isSystemInDarkTheme()
+            val palette by preferencesManager.themePaletteFlow.collectAsState(initial = ThemePalette.LAVENDER)
+            val isDarkPref by preferencesManager.isDarkModeFlow.collectAsState(initial = false)
+            val darkTheme = isDarkPref ?: false
 
             SbrosTheme(palette = palette, darkTheme = darkTheme) {
                 SbrosAppShell()

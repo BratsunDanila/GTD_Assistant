@@ -2,9 +2,11 @@ package com.sbros.app.ui.welcome
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -16,7 +18,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,25 +26,38 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.AutoFixHigh
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.East
+import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Swipe
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.West
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -59,19 +73,23 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sbros.app.domain.model.ThemePalette
+import com.sbros.app.domain.repository.AuthResult
 
 /**
- * Полноэкранный 3-шаговый экран онбординга (по спецификации sbros_production_m3.html):
- * - Слайд 1: «Выговори кашу из головы» (демо-карточка: шум зачеркнут -> задачи созданы)
- * - Слайд 2: «По одной задаче за раз» (памятка по свайпам: вправо — Готово, влево — Потом, 1/3 — Проще)
- * - Слайд 3: «Настрой под себя» (ввод имени + сетка 2x2 выбора палитры Material 3)
- * - Строго фиксированная высота кнопок 52.dp (без растягивания по вертикали)
- * - Рендерится поверх всего интерфейса (100% покрытие)
+ * Полноэкранный 4-шаговый экран онбординга:
+ * - Слайд 1: «Выговори кашу из головы»
+ * - Слайд 2: «По одной задаче за раз»
+ * - Слайд 3: «Настрой под себя» (Имя + цветовая палитра)
+ * - Слайд 4: «Вход и Регистрация» (с опцией «Продолжить без аккаунта»)
  */
 @Composable
 fun OnboardingScreen(
@@ -79,6 +97,9 @@ fun OnboardingScreen(
     currentPalette: ThemePalette,
     onNameChange: (String) -> Unit,
     onPaletteSelect: (ThemePalette) -> Unit,
+    onSignIn: (email: String, pass: String, (AuthResult) -> Unit) -> Unit,
+    onSignUp: (email: String, pass: String, name: String, (AuthResult) -> Unit) -> Unit,
+    onContinueAsGuest: () -> Unit,
     onComplete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -94,7 +115,7 @@ fun OnboardingScreen(
                 .padding(horizontal = 24.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Верхняя строка: Индикатор шагов + кнопка «Пропустить»
+            // Верхняя строка: Индикатор 4 шагов + кнопка «Пропустить»
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -102,12 +123,11 @@ fun OnboardingScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Точки-индикаторы с плавной анимацией ширины от 8.dp до 26.dp
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    repeat(3) { index ->
+                    repeat(4) { index ->
                         val width by animateDpAsState(
                             targetValue = if (index == step) 26.dp else 8.dp,
                             animationSpec = spring(
@@ -146,25 +166,29 @@ fun OnboardingScreen(
                 }
             }
 
-            // Центральная контентная зона со слайдами
+            // Центральная контентная зона со слайдами (строго горизонтальная анимация)
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.TopCenter
             ) {
                 AnimatedContent(
                     targetState = step,
                     transitionSpec = {
                         if (targetState > initialState) {
-                            (slideInHorizontally { width -> width / 2 } + fadeIn()) togetherWith
-                                    (slideOutHorizontally { width -> -width / 2 } + fadeOut())
+                            (slideInHorizontally(animationSpec = tween(320)) { width -> width } + fadeIn(animationSpec = tween(320))) togetherWith
+                                    (slideOutHorizontally(animationSpec = tween(320)) { width -> -width } + fadeOut(animationSpec = tween(320)))
                         } else {
-                            (slideInHorizontally { width -> -width / 2 } + fadeIn()) togetherWith
-                                    (slideOutHorizontally { width -> width / 2 } + fadeOut())
-                        }
+                            (slideInHorizontally(animationSpec = tween(320)) { width -> -width } + fadeIn(animationSpec = tween(320))) togetherWith
+                                    (slideOutHorizontally(animationSpec = tween(320)) { width -> width } + fadeOut(animationSpec = tween(320)))
+                        }.using(
+                            SizeTransform(clip = false) { _, _ -> tween(0) }
+                        )
                     },
-                    label = "onboardSlide"
+                    label = "onboardSlide",
+                    modifier = Modifier.fillMaxSize()
                 ) { currentStep ->
                     when (currentStep) {
                         0 -> OnboardingSlide1()
@@ -175,11 +199,21 @@ fun OnboardingScreen(
                             onNameChange = onNameChange,
                             onPaletteSelect = onPaletteSelect
                         )
+                        3 -> OnboardingSlideAuth(
+                            initialName = currentName,
+                            onSignIn = onSignIn,
+                            onSignUp = onSignUp,
+                            onContinueAsGuest = {
+                                onContinueAsGuest()
+                                onComplete()
+                            },
+                            onAuthSuccess = onComplete
+                        )
                     }
                 }
             }
 
-            // Нижний ряд кнопок со строго фиксированной высотой 52.dp (без vertical weight!)
+            // Нижний ряд кнопок со строго фиксированной высотой 52.dp
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -211,32 +245,32 @@ fun OnboardingScreen(
                     }
                 }
 
-                Button(
-                    onClick = {
-                        if (step < 2) step++ else onComplete()
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(52.dp)
-                ) {
-                    Text(
-                        text = if (step == 2) "Начать работу" else "Далее",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                if (step < 3) {
+                    Button(
+                        onClick = { step++ },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                    ) {
+                        Text(
+                            text = if (step == 2) "К аккаунту" else "Далее",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
                         )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }
@@ -249,7 +283,9 @@ fun OnboardingScreen(
 @Composable
 private fun OnboardingSlide1() {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Surface(
@@ -424,7 +460,9 @@ private fun OnboardingSlide1() {
 @Composable
 private fun OnboardingSlide2() {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Surface(
@@ -568,7 +606,9 @@ private fun OnboardingSlide3(
     onPaletteSelect: (ThemePalette) -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Surface(
@@ -690,6 +730,231 @@ private fun OnboardingSlide3(
                 }
             }
         }
+    }
+}
+
+/**
+ * Слайд 4: Экран входа и регистрации сразу после 3 ознакомительных экранов.
+ */
+@Composable
+private fun OnboardingSlideAuth(
+    initialName: String,
+    onSignIn: (email: String, pass: String, (AuthResult) -> Unit) -> Unit,
+    onSignUp: (email: String, pass: String, name: String, (AuthResult) -> Unit) -> Unit,
+    onContinueAsGuest: () -> Unit,
+    onAuthSuccess: () -> Unit
+) {
+    var selectedTab by remember { mutableIntStateOf(1) } // По умолчанию вкладка "Регистрация"
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initialName) }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Surface(
+            modifier = Modifier.size(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Rounded.Cloud,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+
+        Text(
+            text = "Синхронизация и аккаунт",
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                letterSpacing = (-0.02).sp
+            ),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        Text(
+            text = "Приложение полностью работает без интернета. Создайте аккаунт для облачной базы данных Supabase или продолжайте как гость.",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = 13.sp,
+                lineHeight = 18.sp
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        // Табы: Регистрация / Вход
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.clip(RoundedCornerShape(12.dp))
+        ) {
+            Tab(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1; errorMessage = null },
+                text = { Text("Регистрация", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium) }
+            )
+            Tab(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0; errorMessage = null },
+                text = { Text("Вход", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium) }
+            )
+        }
+
+        if (selectedTab == 1) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Ваше имя") },
+                leadingIcon = {
+                    Icon(imageVector = Icons.Rounded.Person, contentDescription = null)
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        OutlinedTextField(
+            value = email,
+            onValueChange = {
+                email = it
+                errorMessage = null
+            },
+            label = { Text("Электронная почта") },
+            leadingIcon = {
+                Icon(imageVector = Icons.Rounded.Email, contentDescription = null)
+            },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        OutlinedTextField(
+            value = password,
+            onValueChange = {
+                password = it
+                errorMessage = null
+            },
+            label = { Text("Пароль (от 6 символов)") },
+            leadingIcon = {
+                Icon(imageVector = Icons.Rounded.Lock, contentDescription = null)
+            },
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                        contentDescription = null
+                    )
+                }
+            },
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        AnimatedVisibility(visible = errorMessage != null) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.errorContainer,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = errorMessage ?: "",
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Кнопка Вход / Регистрация
+        Button(
+            onClick = {
+                isLoading = true
+                errorMessage = null
+                if (selectedTab == 1) {
+                    onSignUp(email, password, name) { result ->
+                        isLoading = false
+                        when (result) {
+                            is AuthResult.Success -> onAuthSuccess()
+                            is AuthResult.Error -> errorMessage = result.message
+                        }
+                    }
+                } else {
+                    onSignIn(email, password) { result ->
+                        isLoading = false
+                        when (result) {
+                            is AuthResult.Success -> onAuthSuccess()
+                            is AuthResult.Error -> errorMessage = result.message
+                        }
+                    }
+                }
+            },
+            enabled = !isLoading && email.isNotBlank() && password.length >= 6,
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(22.dp)
+                )
+            } else {
+                Text(
+                    text = if (selectedTab == 1) "Создать аккаунт и войти" else "Войти",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.5.sp
+                )
+            }
+        }
+
+        // Кнопка Продолжить без аккаунта
+        OutlinedButton(
+            onClick = onContinueAsGuest,
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+        ) {
+            Text(
+                text = "Продолжить без аккаунта (Гость)",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Text(
+            text = "Все дела останутся в телефоне и автоматически загрузятся в облако, если решите зарегистрироваться позже.",
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 14.sp),
+            color = MaterialTheme.colorScheme.outline,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+        )
     }
 }
 

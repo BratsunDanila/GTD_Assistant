@@ -92,7 +92,7 @@ fun NowScreen(
     val userName by viewModel.userName.collectAsState()
     val palette by viewModel.themePalette.collectAsState()
     val isDarkPref by viewModel.isDarkMode.collectAsState()
-    val isDark = isDarkPref ?: androidx.compose.foundation.isSystemInDarkTheme()
+    val isDark = isDarkPref ?: false
 
     val isAuthenticated by viewModel.isAuthenticated.collectAsState()
     val currentUserEmail by viewModel.currentUserEmail.collectAsState()

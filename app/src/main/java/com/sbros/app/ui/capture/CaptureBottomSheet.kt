@@ -439,11 +439,6 @@ fun CaptureBottomSheet(
                             }
                         }
 
-                        // Мягкий GTD-вопрос-подсказка
-                        GentlePromptCard(
-                            modifier = Modifier.padding(bottom = 14.dp)
-                        )
-
                         // Кнопки перехода к ИИ-разбору (Фаза 2)
                         Row(
                             modifier = Modifier.fillMaxWidth(),

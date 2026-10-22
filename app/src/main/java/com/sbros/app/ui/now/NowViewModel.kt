@@ -179,7 +179,7 @@ class NowViewModel @Inject constructor(
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = null
+            initialValue = false
         )
 
     val hasCompletedOnboarding: StateFlow<Boolean> = preferencesManager.hasCompletedOnboardingFlow
