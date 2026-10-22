@@ -111,6 +111,12 @@ class FakeSbrosRepository : SbrosRepository {
         }
     }
 
+    override suspend fun deleteTask(taskId: String) {
+        tasks.value = tasks.value.filter { it.id != taskId }
+    }
+
+    override suspend fun deleteProject(projectId: String) {}
+
     override suspend fun applySoftAmnesty(): Int = 0
 }
 
@@ -148,7 +154,7 @@ class Stage3UnitTest {
 
     @Test
     fun testSimplifyTaskCycling() = runBlocking {
-        val task = fakeRepository.getTaskById("task-mech-batteries-buy")
+        val task = fakeRepository.getTaskById(SeedData.TASK_BATTERIES_ID)
         assertNotNull(task)
         assertEquals(0, task!!.currentSimplifyIndex)
         assertEquals(2, task.simplifiedSteps.size)
@@ -156,21 +162,21 @@ class Stage3UnitTest {
         // 0 -> 1
         var nextIdx = simplifyTaskUseCase(task)
         assertEquals(1, nextIdx)
-        var updated = fakeRepository.getTaskById("task-mech-batteries-buy")!!
+        var updated = fakeRepository.getTaskById(SeedData.TASK_BATTERIES_ID)!!
         assertEquals(1, updated.currentSimplifyIndex)
         assertEquals("Открыть маркетплейс и вбить «Аккумуляторы АА Ni-MH 4 шт»", updated.currentStepText)
 
         // 1 -> 2
         nextIdx = simplifyTaskUseCase(updated)
         assertEquals(2, nextIdx)
-        updated = fakeRepository.getTaskById("task-mech-batteries-buy")!!
+        updated = fakeRepository.getTaskById(SeedData.TASK_BATTERIES_ID)!!
         assertEquals(2, updated.currentSimplifyIndex)
         assertEquals("Положить первую подходящую упаковку в корзину", updated.currentStepText)
 
         // 2 -> 0 (цикл возврата)
         nextIdx = simplifyTaskUseCase(updated)
         assertEquals(0, nextIdx)
-        updated = fakeRepository.getTaskById("task-mech-batteries-buy")!!
+        updated = fakeRepository.getTaskById(SeedData.TASK_BATTERIES_ID)!!
         assertEquals(0, updated.currentSimplifyIndex)
         assertEquals("Заказать аккумуляторы АА на маркетплейсе", updated.currentStepText)
     }

@@ -48,11 +48,18 @@ class NowViewModel @Inject constructor(
     private val processMindDumpUseCase: ProcessMindDumpUseCase,
     private val saveParsedTasksUseCase: SaveParsedTasksUseCase,
     private val aiParserApi: com.sbros.app.data.remote.AiParserApi,
+    private val openRouterClient: com.sbros.app.data.remote.OpenRouterClient,
     private val repository: com.sbros.app.domain.repository.SbrosRepository,
     private val preferencesManager: PreferencesManager,
     private val authRepository: com.sbros.app.domain.repository.AuthRepository,
     private val syncManager: com.sbros.app.sync.SyncManager
 ) : ViewModel() {
+
+    init {
+        viewModelScope.launch {
+            syncManager.triggerSync()
+        }
+    }
 
     fun processMindDump(rawText: String) {
         viewModelScope.launch {
@@ -62,67 +69,56 @@ class NowViewModel @Inject constructor(
 
     suspend fun parseTranscript(rawText: String): List<EditableParsedItem> {
         val trimmed = rawText.trim()
-        if (trimmed.isNotBlank()) {
-            val existingProjects = repository.getAllActiveProjects()
-            val response = aiParserApi.parseTranscript(trimmed, existingProjects)
-            if (response.parsedItems.isNotEmpty()) {
-                return response.parsedItems.map { dto ->
-                    EditableParsedItem(
-                        id = UUID.randomUUID().toString(),
-                        title = dto.title,
-                        shelf = try { ShelfType.valueOf(dto.shelf) } catch (_: Exception) { ShelfType.SIMPLE_STEPS },
-                        energyLevel = try { EnergyLevel.valueOf(dto.energyLevel) } catch (_: Exception) { EnergyLevel.MECHANICAL },
-                        aiHint = dto.aiHint,
-                        categoryBadge = dto.categoryBadge,
-                        estimatedMinutes = dto.estimatedMinutes,
-                        simplifiedSteps = dto.simplifiedSteps,
-                        matchedProjectId = dto.matchedProjectId,
-                        newProjectTitle = dto.newProjectTitle,
-                        aiDraftType = dto.aiDraftType,
-                        aiDraftContent = dto.aiDraftContent,
-                        scheduledDateMillis = dto.scheduledDateMillis,
-                        scheduledTimeText = dto.scheduledTimeText,
-                        contextTag = dto.contextTag
-                    )
+        if (trimmed.isBlank()) {
+            return emptyList()
+        }
+
+        val existingProjects = repository.getAllActiveProjects()
+        val response = aiParserApi.parseTranscript(trimmed, existingProjects)
+        if (response.parsedItems.isNotEmpty()) {
+            return response.parsedItems.map { dto ->
+                val parsedDiff = when (dto.difficulty.uppercase()) {
+                    "HARD" -> TaskDifficulty.HARD
+                    "MEDIUM" -> TaskDifficulty.MEDIUM
+                    "EASY" -> TaskDifficulty.EASY
+                    else -> when (dto.energyLevel.uppercase()) {
+                        "FLOW", "HARD" -> TaskDifficulty.HARD
+                        "SINGLE_STEP", "MEDIUM" -> TaskDifficulty.MEDIUM
+                        else -> TaskDifficulty.EASY
+                    }
                 }
+                val parsedShelf = try {
+                    ShelfType.valueOf(dto.shelf)
+                } catch (_: Exception) {
+                    if (parsedDiff == TaskDifficulty.HARD) ShelfType.BIG_THINGS else ShelfType.SIMPLE_STEPS
+                }
+
+                EditableParsedItem(
+                    id = UUID.randomUUID().toString(),
+                    title = dto.title.ifBlank { trimmed.take(80) },
+                    shelf = parsedShelf,
+                    difficulty = parsedDiff,
+                    energyLevel = parsedDiff,
+                    aiHint = dto.aiHint,
+                    categoryBadge = dto.categoryBadge.ifBlank { "Бытовое" },
+                    estimatedMinutes = if (dto.estimatedMinutes > 0) dto.estimatedMinutes else 5,
+                    simplifiedSteps = dto.simplifiedSteps,
+                    matchedProjectId = dto.matchedProjectId,
+                    newProjectTitle = dto.newProjectTitle,
+                    aiDraftType = dto.aiDraftType,
+                    aiDraftContent = dto.aiDraftContent,
+                    scheduledDateMillis = dto.scheduledDateMillis,
+                    scheduledTimeText = dto.scheduledTimeText,
+                    contextTag = dto.contextTag,
+                    contextCategory = dto.contextCategory,
+                    substeps = dto.aiSuggestedSteps.map { SubstepItem(text = it, isDone = false) },
+                    aiSuggestedSteps = dto.aiSuggestedSteps,
+                    aiAdvice = dto.aiAdvice
+                )
             }
         }
-        // Эталонный фолбек без эмодзи по sbros_production_m3.html
-        return listOf(
-            EditableParsedItem(
-                title = "Заказать аккумуляторы АА на маркетплейсе",
-                shelf = ShelfType.SIMPLE_STEPS,
-                energyLevel = EnergyLevel.MECHANICAL,
-                categoryBadge = "Бытовое • Покупки",
-                estimatedMinutes = 3,
-                aiHint = "ИИ отделил это от мыслей про камеру в простую покупку.",
-                aiDraftType = "Рекомендация ИИ",
-                aiDraftContent = "Поиск: Ni-MH AA 2100-2500 mAh (низкий саморазряд LSD, держат привод объектива без просадки напряжения).",
-                contextTag = "out"
-            ),
-            EditableParsedItem(
-                title = "Написать 3 абзаца черновика введения",
-                shelf = ShelfType.BIG_THINGS,
-                energyLevel = EnergyLevel.FLOW,
-                categoryBadge = "Большое дело: Курсовая",
-                estimatedMinutes = 20,
-                aiHint = "ИИ разбил проект «Курсовая» и выделил легкий 1-й шаг",
-                aiDraftType = "План введения",
-                aiDraftContent = "1. Проблема когнитивного перегруза.\n2. Снижение барьера входа.\n3. Декомпозиция с помощью ИИ.",
-                contextTag = "pc"
-            ),
-            EditableParsedItem(
-                title = "Правки по первой главе от научрука",
-                shelf = ShelfType.WAITING,
-                energyLevel = EnergyLevel.MECHANICAL,
-                categoryBadge = "Ожидание • Контроль",
-                estimatedMinutes = 0,
-                aiHint = "Спрятано из экрана «Сейчас», чтобы не мешать",
-                aiDraftType = "Черновик напоминания",
-                aiDraftContent = "«Здравствуйте! Удалось ли посмотреть черновик первой главы?»",
-                contextTag = "phone"
-            )
-        )
+
+        return emptyList()
     }
 
     fun saveParsedTasks(items: List<EditableParsedItem>) {
@@ -159,6 +155,14 @@ class NowViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = null
+        )
+
+    val hasAnyActiveTasks: StateFlow<Boolean> = repository.getAllTasks()
+        .map { list -> list.any { !it.isCompleted && (it.shelf == ShelfType.SIMPLE_STEPS || it.shelf == ShelfType.BIG_THINGS) } }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
         )
 
     val userName: StateFlow<String> = preferencesManager.userNameFlow
@@ -284,34 +288,64 @@ class NowViewModel @Inject constructor(
         selectDifficulty(level)
     }
 
+    val openRouterApiKey: StateFlow<String?> = preferencesManager.openRouterApiKeyFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    val openRouterModel: StateFlow<String> = preferencesManager.openRouterModelFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = PreferencesManager.DEFAULT_OPENROUTER_MODEL
+        )
+
+    fun setOpenRouterApiKey(apiKey: String?) {
+        viewModelScope.launch {
+            preferencesManager.setOpenRouterApiKey(apiKey)
+        }
+    }
+
+    fun setOpenRouterModel(model: String) {
+        viewModelScope.launch {
+            preferencesManager.setOpenRouterModel(model)
+        }
+    }
+
+    suspend fun testOpenRouterConnection(apiKey: String, model: String): Result<Boolean> {
+        return openRouterClient.testApiKey(apiKey, model)
+    }
+
     fun generateAiSubsteps(taskId: String) {
         viewModelScope.launch {
             val task = repository.getTaskById(taskId) ?: return@launch
-            val stepsToUse = if (task.aiSuggestedSteps.isNotEmpty()) {
-                task.aiSuggestedSteps
-            } else {
-                val t = task.title.lowercase(java.util.Locale.ROOT)
-                when {
-                    t.contains("аккумулятор") || t.contains("купить") || t.contains("заказать") -> listOf(
-                        "Открыть маркетплейс и вбить в поиск «${task.title}»",
-                        "Сравнить 2 лучших варианта по отзывам и положить в корзину",
-                        "Оформить доставку в ближайший пункт выдачи"
-                    )
-                    t.contains("старост") || t.contains("отправить") || t.contains("написать") || t.contains("сообщени") -> listOf(
-                        "Подготовить точную формулировку текста или файл",
-                        "Открыть диалог в мессенджере и отправить сообщение",
-                        "Убедиться, что сообщение прочитано"
-                    )
-                    else -> listOf(
-                        "Подготовить материалы и рабочее окно для задачи «${task.title}»",
-                        "Выполнить основную часть в течение 15 минут без отвлечений",
-                        "Проверить результат и зафиксировать итог"
-                    )
-                }
-            }
+            val stepsToUse = aiParserApi.decomposeTask(task.title, task.contextCategory)
             val newSubsteps = stepsToUse.map { SubstepItem(text = it, isDone = false) }
             val updatedTask = task.copy(substeps = newSubsteps)
             repository.updateTask(updatedTask)
+        }
+    }
+
+    private val _isAnalyzingAi = MutableStateFlow(false)
+    val isAnalyzingAi: StateFlow<Boolean> = _isAnalyzingAi.asStateFlow()
+
+    fun generateAiDraft(taskId: String) {
+        viewModelScope.launch {
+            _isAnalyzingAi.value = true
+            try {
+                val task = repository.getTaskById(taskId) ?: return@launch
+                val draft = aiParserApi.generateDraft(task.title, task.contextCategory) ?: return@launch
+                val updatedTask = task.copy(
+                    aiDraftType = draft.draftType,
+                    aiDraftContent = draft.draftContent,
+                    aiAdvice = draft.aiAdvice
+                )
+                repository.updateTask(updatedTask)
+            } finally {
+                _isAnalyzingAi.value = false
+            }
         }
     }
 

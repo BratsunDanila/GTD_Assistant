@@ -27,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Help
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.CloudOff
@@ -99,7 +100,8 @@ fun NowScreen(
     val currentUserId by viewModel.currentUserId.collectAsState()
     val syncState by viewModel.syncState.collectAsState()
     val lastSyncedTime by viewModel.lastSyncedTime.collectAsState()
-
+    val isAnalyzingAi by viewModel.isAnalyzingAi.collectAsState()
+    val hasAnyActiveTasks by viewModel.hasAnyActiveTasks.collectAsState()
     val remainingInStack = currentTasksList.size
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -160,11 +162,12 @@ fun NowScreen(
                 .padding(horizontal = 18.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
+            val scrollState = rememberScrollState()
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f, fill = false)
-                    .verticalScroll(rememberScrollState())
+                    .weight(1f)
+                    .verticalScroll(scrollState)
             ) {
                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -238,12 +241,17 @@ fun NowScreen(
                             shape = CircleShape,
                             color = when {
                                 syncState == AppSyncState.SYNCING -> MaterialTheme.colorScheme.primaryContainer
+                                syncState == AppSyncState.ERROR -> MaterialTheme.colorScheme.errorContainer
                                 isAuthenticated -> MaterialTheme.colorScheme.surface
                                 else -> MaterialTheme.colorScheme.surface
                             },
                             border = BorderStroke(
                                 1.dp,
-                                if (isAuthenticated) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant
+                                when {
+                                    syncState == AppSyncState.ERROR -> MaterialTheme.colorScheme.error
+                                    isAuthenticated -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                    else -> MaterialTheme.colorScheme.outlineVariant
+                                }
                             )
                         ) {
                             IconButton(
@@ -256,6 +264,14 @@ fun NowScreen(
                                             strokeWidth = 2.dp,
                                             modifier = Modifier.size(16.dp),
                                             color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    syncState == AppSyncState.ERROR -> {
+                                        Icon(
+                                            imageVector = Icons.Rounded.CloudOff,
+                                            contentDescription = "Ошибка синхронизации",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                     isAuthenticated && syncState == AppSyncState.OFFLINE -> {
@@ -401,7 +417,7 @@ fun NowScreen(
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
-                                        imageVector = Icons.Rounded.DoneAll,
+                                        imageVector = if (hasAnyActiveTasks) Icons.Rounded.DoneAll else Icons.Rounded.AutoAwesome,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.size(26.dp)
@@ -409,7 +425,7 @@ fun NowScreen(
                                 }
                             }
                             Text(
-                                text = "В этой сложности всё выполнено!",
+                                text = if (hasAnyActiveTasks) "В этой сложности всё выполнено!" else "Голова свободна!",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 16.sp
@@ -417,7 +433,11 @@ fun NowScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Выполненные задачи убраны из стопки. Можешь переключить сложность или сбросить новые мысли.",
+                                text = if (hasAnyActiveTasks) {
+                                    "Выполненные задачи убраны из стопки. Можешь переключить сложность или сбросить новые мысли."
+                                } else {
+                                    "Здесь пока нет задач. Нажми кнопку микрофона или ввода внизу, чтобы сбросить поток мыслей — ИИ сам разложит всё по карточкам."
+                                },
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 12.sp,
                                     lineHeight = 16.sp
@@ -426,7 +446,13 @@ fun NowScreen(
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
                             Button(
-                                onClick = { viewModel.switchToNextAvailableDifficulty(onAllEmpty = onVoiceCaptureClick) },
+                                onClick = {
+                                    if (hasAnyActiveTasks) {
+                                        viewModel.switchToNextAvailableDifficulty(onAllEmpty = onVoiceCaptureClick)
+                                    } else {
+                                        onVoiceCaptureClick()
+                                    }
+                                },
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary,
@@ -435,7 +461,7 @@ fun NowScreen(
                                 modifier = Modifier.padding(top = 4.dp)
                             ) {
                                 Text(
-                                    text = "Показать другие задачи",
+                                    text = if (hasAnyActiveTasks) "Показать другие задачи" else "Сбросить первые мысли",
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                                 )
                             }
@@ -455,22 +481,19 @@ fun NowScreen(
                         remainingInStack = remainingInStack
                     )
 
-                    // 5. Ленивый анализ ИИ по требованию (доступен для ВСЕХ задач)
+                    // 5. Экспресс-анализ ИИ по требованию (доступен для всех задач)
                     if (focusTask != null && !showFeedback) {
                         val currentTask = focusTask!!
-                        val adviceContent = if (currentTask.aiDraftContent.isNotBlank()) {
-                            currentTask.aiDraftContent
-                        } else {
-                            "Анализ задачи (${currentTask.difficulty.label} • ${currentTask.contextCategory.ifBlank { "Общее" }}):\nЧтобы сделать «${currentTask.title}» быстрее, начни с самого простого подготовительного действия на 2 минуты или разбей задачу кнопкой «Разбить на шаги»."
-                        }
-                        val adviceType = if (currentTask.aiDraftType.isNotBlank()) currentTask.aiDraftType else "Анализ задачи"
-
+                        Spacer(modifier = Modifier.height(14.dp))
                         OnDemandAiPanel(
-                            aiDraftContent = adviceContent,
+                            aiDraftContent = currentTask.aiDraftContent,
                             taskId = currentTask.id,
-                            aiDraftType = adviceType
+                            aiDraftType = currentTask.aiDraftType,
+                            aiAdvice = currentTask.aiAdvice,
+                            isAnalyzing = isAnalyzingAi,
+                            onRequestAnalysis = { viewModel.generateAiDraft(currentTask.id) }
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
 

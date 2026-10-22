@@ -455,7 +455,7 @@ private fun OnboardingSlide1() {
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh
                             ) {
                                 Text(
-                                    text = "Механика",
+                                    text = "Просто",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -706,21 +706,21 @@ private fun OnboardingSlideAuth(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            // Табы: Регистрация / Вход
+            // Табы: Вход / Регистрация
             TabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 modifier = Modifier.clip(RoundedCornerShape(12.dp))
             ) {
                 Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1; errorMessage = null },
-                    text = { Text("Регистрация", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium) }
-                )
-                Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0; errorMessage = null },
                     text = { Text("Вход", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium) }
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1; errorMessage = null },
+                    text = { Text("Регистрация", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium) }
                 )
             }
 

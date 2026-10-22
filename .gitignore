@@ -13,3 +13,19 @@ captures
 .kotlin
 screen.png
 *.png
+!docs/screenshots/*.png
+
+# Local and temporary files
+*.sqlite
+ktor_android_extracted/
+test_*.py
+test_*.docx
+update_word_toc.ps1
+exact_payload.json
+view.xml
+build_docx.py
+create_diagrams.py
+create_mockups.py
+generate_perfect_coursework.py
+run_word_update.py
+

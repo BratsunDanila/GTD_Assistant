@@ -16,7 +16,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -137,6 +139,14 @@ class FakeFullSbrosRepository : SbrosRepository {
         }
     }
 
+    override suspend fun deleteTask(taskId: String) {
+        tasks.value = tasks.value.filter { it.id != taskId }
+    }
+
+    override suspend fun deleteProject(projectId: String) {
+        projects.value = projects.value.filter { it.id != projectId }
+    }
+
     override suspend fun applySoftAmnesty(): Int = 0
 }
 
@@ -190,6 +200,59 @@ class Stage5UnitTest {
     }
 
     @Test
+    fun testUserReportedPhrasesParsing() = runBlocking {
+        val transcript = "сегодня мне нужно сходить в магазин купить чебуреки, завтра в 9:45 сдать курсовую работу"
+        val existingProjects = fakeRepository.getAllActiveProjects()
+        val result = aiParserApi.parseTranscript(transcript, existingProjects)
+
+        assertTrue(result.parsedItems.isNotEmpty())
+        val chebureki = result.parsedItems.firstOrNull { it.title.contains("чебурек", ignoreCase = true) }
+        assertNotNull(chebureki)
+        assertEquals("Купить чебуреки", chebureki?.title)
+        assertEquals("Покупки и заказы", chebureki?.contextCategory)
+        assertEquals("SIMPLE_STEPS", chebureki?.shelf)
+        assertNotNull(chebureki?.scheduledDateMillis)
+        org.junit.Assert.assertNull("Время не должно выдумываться если не названо", chebureki?.scheduledTimeText)
+        assertTrue(chebureki?.aiSuggestedSteps.isNullOrEmpty())
+
+        val coursework = result.parsedItems.firstOrNull { it.title.contains("курсов", ignoreCase = true) }
+        assertNotNull(coursework)
+        assertEquals("Сдать курсовую работу", coursework?.title)
+        assertEquals("Учеба и вуз", coursework?.contextCategory)
+        assertEquals("09:45", coursework?.scheduledTimeText)
+        assertEquals("BIG_THINGS", coursework?.shelf)
+        assertNotNull(coursework?.scheduledDateMillis)
+        assertTrue(coursework?.aiSuggestedSteps.isNullOrEmpty())
+    }
+
+    @Test
+    fun testDayWithoutTimeHasDateButNullTime() = runBlocking {
+        val transcript = "в пятницу сдать отчет"
+        val result = aiParserApi.parseTranscript(transcript, emptyList())
+
+        assertEquals(1, result.parsedItems.size)
+        val item = result.parsedItems.first()
+        assertEquals("Сдать отчет", item.title)
+        assertNotNull("День должен быть зафиксирован в календаре", item.scheduledDateMillis)
+        org.junit.Assert.assertNull("Время не должно придумываться", item.scheduledTimeText)
+    }
+
+    @Test
+    fun testDecompositionMaxSteps() = runBlocking {
+        val steps = aiParserApi.decomposeTask("Написать дипломную работу", "Учеба и вуз")
+        assertTrue("Шагов должно быть от 2 до 4", steps.size in 2..4)
+    }
+
+    @Test
+    fun testAiDraftAnalysisGeneration() = runBlocking {
+        val draft = aiParserApi.generateDraft("Позвонить старосте", "Учеба и вуз")
+        assertNotNull(draft)
+        assertTrue(draft!!.draftContent.isNotBlank())
+        assertTrue(draft.draftType.isNotBlank())
+        assertTrue(draft.aiAdvice.isNotBlank())
+    }
+
+    @Test
     fun testBigThingsProjectDeconstruction() = runBlocking {
         val transcript = "надо сесть за курсач наконец"
         val existingProjects = fakeRepository.getAllActiveProjects()
@@ -203,7 +266,7 @@ class Stage5UnitTest {
         assertEquals(20, bigThing.estimatedMinutes)
         assertEquals(2, bigThing.simplifiedSteps.size)
         // Должен привязаться к существующему проекту "Курсовая работа"
-        assertEquals("project-coursework", bigThing.matchedProjectId)
+        assertEquals(SeedData.PROJECT_COURSEWORK_ID, bigThing.matchedProjectId)
     }
 
     @Test
@@ -219,7 +282,7 @@ class Stage5UnitTest {
     @Test
     fun testBigThingsOnlyExposesFirstStep() = runBlocking {
         val projectsWithStep = fakeRepository.getProjectsWithFirstStep()
-        val coursework = fakeRepository.getAllActiveProjects().first { it.id == "project-coursework" }
+        val coursework = fakeRepository.getAllActiveProjects().first { it.id == SeedData.PROJECT_COURSEWORK_ID }
 
         val allCourseworkTasks = fakeRepository.getTasksForProject(coursework.id)
         assertEquals(2, allCourseworkTasks.size)
@@ -239,5 +302,32 @@ class Stage5UnitTest {
         assertNotNull(newFirstStep)
         assertEquals(2, newFirstStep?.orderInProject)
         assertEquals("Составить содержание и список глав", newFirstStep?.title)
+    }
+
+    @Test
+    fun testUserVoicePhrasesTimeAndDifficulty() = runBlocking {
+        // 1. "сдать курсовую в 9 45 завтра"
+        val res1 = aiParserApi.parseTranscript("сдать курсовую в 9 45 завтра", emptyList())
+        val task1 = res1.parsedItems.first()
+        assertEquals("09:45", task1.scheduledTimeText)
+        assertNotNull(task1.scheduledDateMillis)
+        assertTrue(task1.title.contains("курсов", ignoreCase = true))
+        assertFalse(task1.title.contains("завтра", ignoreCase = true))
+        assertFalse(task1.title.contains("9 45"))
+
+        // 2. "завтра в 6 вечера погулять с девушкой"
+        val res2 = aiParserApi.parseTranscript("завтра в 6:00 вечера погулять с девушкой", emptyList())
+        val task2 = res2.parsedItems.first()
+        assertEquals("18:00", task2.scheduledTimeText)
+        assertNotNull(task2.scheduledDateMillis)
+        assertEquals("EASY", task2.difficulty)
+
+        // 3. "послезавтра начать писать олимпиаду"
+        val res3 = aiParserApi.parseTranscript("послезавтра начать писать олимпиаду", emptyList())
+        val task3 = res3.parsedItems.first()
+        assertNull(task3.scheduledTimeText)
+        assertNotNull(task3.scheduledDateMillis)
+        assertEquals("HARD", task3.difficulty)
+        assertEquals("BIG_THINGS", task3.shelf)
     }
 }

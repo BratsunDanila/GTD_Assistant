@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.Close
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -82,6 +84,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -123,6 +126,7 @@ fun CaptureBottomSheet(
     var textInput by remember { mutableStateOf("") }
     var parsedItems by remember { mutableStateOf<List<EditableParsedItem>>(emptyList()) }
     var isLoadingReview by remember { mutableStateOf(false) }
+    var parseErrorMessage by remember { mutableStateOf<String?>(null) }
 
     var hasAudioPermission by remember {
         mutableStateOf(
@@ -146,10 +150,15 @@ fun CaptureBottomSheet(
         }
     }
 
-    // Если открыли сразу экран REVIEW (например, по тапу на клавиатуру)
+    LaunchedEffect(Unit) {
+        if (!hasAudioPermission && mode == CaptureMode.VOICE) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     LaunchedEffect(initialStep) {
-        if (initialStep == CaptureStep.REVIEW) {
-            val items = onParseTranscript("")
+        if (initialStep == CaptureStep.REVIEW && parsedItems.isEmpty() && textInput.isNotBlank()) {
+            val items = onParseTranscript(textInput)
             parsedItems = items
         }
     }
@@ -397,7 +406,7 @@ fun CaptureBottomSheet(
                                                 shape = RoundedCornerShape(16.dp),
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(bottom = 10.dp)
+                                                    .padding(vertical = 6.dp)
                                             ) {
                                                 Text(
                                                     text = errorMessage ?: "",
@@ -455,16 +464,34 @@ fun CaptureBottomSheet(
                                 Text("Отмена", style = MaterialTheme.typography.labelLarge)
                             }
 
+                            val rawText = if (mode == CaptureMode.VOICE) transcriptText else textInput
+                            val canProceed = rawText.isNotBlank() && !isLoadingReview
+
                             Button(
                                 onClick = {
+                                    if (rawText.isBlank()) return@Button
                                     scope.launch {
                                         isLoadingReview = true
-                                        val raw = if (mode == CaptureMode.VOICE) transcriptText else textInput
+                                        parseErrorMessage = null
                                         speechHelper.stopListening()
-                                        val items = onParseTranscript(raw)
-                                        parsedItems = items
-                                        isLoadingReview = false
-                                        currentStep = CaptureStep.REVIEW
+                                        try {
+                                            val items = onParseTranscript(rawText)
+                                            if (items.isNotEmpty()) {
+                                                parsedItems = items
+                                                currentStep = CaptureStep.REVIEW
+                                            } else {
+                                                parseErrorMessage = "ИИ не нашел задач в вашем тексте."
+                                            }
+                                        } catch (e: Exception) {
+                                            val msg = e.message ?: "Ошибка связи с ИИ"
+                                            parseErrorMessage = if (msg.contains("timeout", ignoreCase = true)) {
+                                                "Превышено время ожидания ответа ИИ. Попробуйте повторить или проверьте сеть."
+                                            } else {
+                                                msg
+                                            }
+                                        } finally {
+                                            isLoadingReview = false
+                                        }
                                     }
                                 },
                                 shape = CircleShape,
@@ -472,21 +499,65 @@ fun CaptureBottomSheet(
                                     containerColor = MaterialTheme.colorScheme.primary,
                                     contentColor = MaterialTheme.colorScheme.onPrimary
                                 ),
-                                enabled = !isLoadingReview,
+                                enabled = canProceed,
                                 modifier = Modifier
                                     .weight(2f)
                                     .height(48.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.AutoAwesome,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isLoadingReview) "Разбираю..." else "Посмотреть разбор",
-                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
-                                )
+                                if (isLoadingReview) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "ИИ разбирает...",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Rounded.AutoAwesome,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Посмотреть разбор",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (parseErrorMessage != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = parseErrorMessage ?: "",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            lineHeight = 18.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
                             }
                         }
 
@@ -574,7 +645,7 @@ fun CaptureBottomSheet(
                         ) {
                             parsedItems.forEachIndexed { index, item ->
                                 Surface(
-                                    shape = RoundedCornerShape(20.dp),
+                                    shape = RoundedCornerShape(18.dp),
                                     color = MaterialTheme.colorScheme.surfaceContainerLow,
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                     modifier = Modifier.fillMaxWidth()
@@ -582,10 +653,10 @@ fun CaptureBottomSheet(
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(14.dp),
+                                            .padding(12.dp),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        // Верхний ряд карточки: переключатель контекста + переключатель сложности + кнопка удаления
+                                        // 1. Верхняя строка: контекст + календарная плашка слева, крестик удаления справа
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -599,113 +670,111 @@ fun CaptureBottomSheet(
                                                 else -> Icons.Rounded.Folder
                                             }
 
-                                            Surface(
-                                                shape = CircleShape,
-                                                color = MaterialTheme.colorScheme.primaryContainer,
-                                                modifier = Modifier
-                                                    .clip(CircleShape)
-                                                    .clickable {
-                                                        val currentIndex = availableContexts.indexOf(item.contextCategory).takeIf { it >= 0 } ?: 0
-                                                        val nextContext = availableContexts[(currentIndex + 1) % availableContexts.size]
-                                                        parsedItems = parsedItems.toMutableList().also {
-                                                            it[index] = item.copy(contextCategory = nextContext)
+                                            Row(
+                                                modifier = Modifier.weight(1f, fill = false),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                // Контекст
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                                    modifier = Modifier
+                                                        .clip(CircleShape)
+                                                        .clickable {
+                                                            val currentIndex = availableContexts.indexOf(item.contextCategory).takeIf { it >= 0 } ?: 0
+                                                            val nextContext = availableContexts[(currentIndex + 1) % availableContexts.size]
+                                                            parsedItems = parsedItems.toMutableList().also {
+                                                                it[index] = item.copy(contextCategory = nextContext)
+                                                            }
+                                                        }
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = contextIcon,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                            modifier = Modifier.size(12.dp)
+                                                        )
+                                                        Text(
+                                                            text = item.contextCategory.ifBlank { "Контекст" },
+                                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                                fontWeight = FontWeight.Bold,
+                                                                fontSize = 11.sp
+                                                            ),
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                            maxLines = 1,
+                                                            softWrap = false
+                                                        )
+                                                    }
+                                                }
+
+                                                // Чип даты/времени в календаре
+                                                val calendarLabel = when {
+                                                    item.scheduledDateMillis != null && !item.scheduledTimeText.isNullOrBlank() -> {
+                                                        val sdf = java.text.SimpleDateFormat("d MMM", java.util.Locale("ru"))
+                                                        "${sdf.format(java.util.Date(item.scheduledDateMillis))} • ${item.scheduledTimeText}"
+                                                    }
+                                                    item.scheduledDateMillis != null -> {
+                                                        val sdf = java.text.SimpleDateFormat("d MMM", java.util.Locale("ru"))
+                                                        "${sdf.format(java.util.Date(item.scheduledDateMillis))} (весь день)"
+                                                    }
+                                                    !item.scheduledTimeText.isNullOrBlank() -> item.scheduledTimeText
+                                                    else -> null
+                                                }
+
+                                                if (calendarLabel != null) {
+                                                    Surface(
+                                                        shape = CircleShape,
+                                                        color = MaterialTheme.colorScheme.secondaryContainer
+                                                    ) {
+                                                        Row(
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Rounded.CalendarToday,
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                                modifier = Modifier.size(11.dp)
+                                                            )
+                                                            Text(
+                                                                text = calendarLabel,
+                                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                                    fontWeight = FontWeight.SemiBold,
+                                                                    fontSize = 10.5.sp
+                                                                ),
+                                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                                maxLines = 1,
+                                                                softWrap = false
+                                                            )
                                                         }
                                                     }
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = contextIcon,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                        modifier = Modifier.size(13.dp)
-                                                    )
-                                                    Text(
-                                                        text = item.contextCategory.ifBlank { "Контекст" },
-                                                        style = MaterialTheme.typography.labelSmall.copy(
-                                                            fontWeight = FontWeight.Bold,
-                                                            fontSize = 11.5.sp
-                                                        ),
-                                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                    )
                                                 }
                                             }
 
-                                            // Правый блок: сложность + «+ Шаг» + удаление
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                            // Кнопка удаления справа
+                                            IconButton(
+                                                onClick = {
+                                                    parsedItems = parsedItems.toMutableList().also { it.removeAt(index) }
+                                                },
+                                                modifier = Modifier.size(24.dp)
                                             ) {
-                                                Surface(
-                                                    shape = CircleShape,
-                                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                    modifier = Modifier
-                                                        .clip(CircleShape)
-                                                        .clickable {
-                                                            val currentDiffIdx = availableDiffs.indexOf(item.difficulty).takeIf { it >= 0 } ?: 0
-                                                            val nextDiff = availableDiffs[(currentDiffIdx + 1) % availableDiffs.size]
-                                                            parsedItems = parsedItems.toMutableList().also {
-                                                                it[index] = item.copy(difficulty = nextDiff)
-                                                            }
-                                                        }
-                                                ) {
-                                                    Text(
-                                                        text = item.difficulty.label,
-                                                        style = MaterialTheme.typography.labelSmall.copy(
-                                                            fontWeight = FontWeight.SemiBold,
-                                                            fontSize = 11.sp
-                                                        ),
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                                    )
-                                                }
-
-                                                Surface(
-                                                    shape = CircleShape,
-                                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                                                    modifier = Modifier
-                                                        .clip(CircleShape)
-                                                        .clickable {
-                                                            val updatedSteps = item.substeps + SubstepItem(
-                                                                text = "Новый шаг внутри задачи",
-                                                                isDone = false
-                                                            )
-                                                            parsedItems = parsedItems.toMutableList().also {
-                                                                it[index] = item.copy(substeps = updatedSteps)
-                                                            }
-                                                        }
-                                                ) {
-                                                    Text(
-                                                        text = "+ Шаг",
-                                                        style = MaterialTheme.typography.labelSmall.copy(
-                                                            fontWeight = FontWeight.Bold,
-                                                            fontSize = 11.sp
-                                                        ),
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                                    )
-                                                }
-
-                                                IconButton(
-                                                    onClick = {
-                                                        parsedItems = parsedItems.toMutableList().also { it.removeAt(index) }
-                                                    },
-                                                    modifier = Modifier.size(26.dp)
-                                                 ) {
-                                                    Icon(
-                                                        imageVector = Icons.Rounded.Close,
-                                                        contentDescription = "Удалить",
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Close,
+                                                    contentDescription = "Удалить",
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
                                             }
                                         }
 
-                                        // Редактируемый текст названия задачи в один тап
+                                        // 2. Редактируемый текст названия задачи в один тап
                                         BasicTextField(
                                             value = item.title,
                                             onValueChange = { newTitle ->
@@ -725,7 +794,7 @@ fun CaptureBottomSheet(
                                                     MaterialTheme.colorScheme.surfaceContainer,
                                                     RoundedCornerShape(8.dp)
                                                 )
-                                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                                                .padding(horizontal = 10.dp, vertical = 7.dp),
                                             decorationBox = { innerTextField ->
                                                 if (item.title.isEmpty()) {
                                                     Text(
@@ -740,7 +809,7 @@ fun CaptureBottomSheet(
                                             }
                                         )
 
-                                        // Подсказка под полем ввода
+                                        // 3. Подсказка под полем ввода
                                         if (item.aiHint.isNotBlank()) {
                                             Text(
                                                 text = item.aiHint,
@@ -749,15 +818,77 @@ fun CaptureBottomSheet(
                                                     fontWeight = if (item.shelf == ShelfType.BIG_THINGS) FontWeight.SemiBold else FontWeight.Normal
                                                 ),
                                                 color = if (item.shelf == ShelfType.BIG_THINGS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(start = 2.dp)
+                                                modifier = Modifier.padding(start = 2.dp),
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
                                             )
-                                        } else {
-                                            Text(
-                                                text = "Нажми на текст, чтобы изменить формулировку",
-                                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                                modifier = Modifier.padding(start = 2.dp)
-                                            )
+                                        }
+
+                                        // 4. Нижняя строка: выбор сложности слева + кнопка "+ Шаг" справа
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            // Чип сложности
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = when (item.difficulty) {
+                                                    TaskDifficulty.EASY -> MaterialTheme.colorScheme.surfaceContainerHigh
+                                                    TaskDifficulty.MEDIUM -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                                                    TaskDifficulty.HARD -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                                                },
+                                                modifier = Modifier
+                                                    .clip(CircleShape)
+                                                    .clickable {
+                                                        val currentDiffIdx = availableDiffs.indexOf(item.difficulty).takeIf { it >= 0 } ?: 0
+                                                        val nextDiff = availableDiffs[(currentDiffIdx + 1) % availableDiffs.size]
+                                                        parsedItems = parsedItems.toMutableList().also {
+                                                            it[index] = item.copy(difficulty = nextDiff)
+                                                        }
+                                                    }
+                                            ) {
+                                                Text(
+                                                    text = "Сложность: ${item.difficulty.label}",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        fontSize = 11.sp
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                                                    maxLines = 1,
+                                                    softWrap = false
+                                                )
+                                            }
+
+                                            // Кнопка "+ Шаг"
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                                modifier = Modifier
+                                                    .clip(CircleShape)
+                                                    .clickable {
+                                                        val updatedSteps = item.substeps + SubstepItem(
+                                                            text = "Новый шаг",
+                                                            isDone = false
+                                                        )
+                                                        parsedItems = parsedItems.toMutableList().also {
+                                                            it[index] = item.copy(substeps = updatedSteps)
+                                                        }
+                                                    }
+                                            ) {
+                                                Text(
+                                                    text = "+ Шаг",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 11.sp
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                                                    maxLines = 1,
+                                                    softWrap = false
+                                                )
+                                            }
                                         }
 
                                         // Вложенные подпункты внутри карточки (+ Шаг)

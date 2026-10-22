@@ -33,6 +33,8 @@ class PreferencesManager @Inject constructor(
         val LAST_SYNCED_TIME = longPreferencesKey("last_synced_time")
         val SUPABASE_URL = stringPreferencesKey("supabase_url")
         val SUPABASE_ANON_KEY = stringPreferencesKey("supabase_anon_key")
+        val OPENROUTER_API_KEY = stringPreferencesKey("openrouter_api_key")
+        val OPENROUTER_MODEL = stringPreferencesKey("openrouter_model")
     }
 
     val hasCompletedOnboardingFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -65,6 +67,24 @@ class PreferencesManager @Inject constructor(
 
     val supabaseAnonKeyFlow: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[PreferencesKeys.SUPABASE_ANON_KEY]
+    }
+
+    val openRouterApiKeyFlow: Flow<String?> = context.dataStore.data.map { preferences ->
+        val saved = preferences[PreferencesKeys.OPENROUTER_API_KEY]
+        if (saved.isNullOrBlank() || saved.startsWith("sk-or-")) {
+            DEFAULT_OPENROUTER_API_KEY
+        } else {
+            saved
+        }
+    }
+
+    val openRouterModelFlow: Flow<String> = context.dataStore.data.map { preferences ->
+        val saved = preferences[PreferencesKeys.OPENROUTER_MODEL]
+        if (saved.isNullOrBlank() || saved == "google/gemini-2.0-flash-001" || saved == "google/gemma-4-26b-a4b-it:free" || saved == "recursive/flint-v1.0:free") {
+            DEFAULT_OPENROUTER_MODEL
+        } else {
+            saved
+        }
     }
 
     val themePaletteFlow: Flow<ThemePalette> = context.dataStore.data.map { preferences ->
@@ -152,6 +172,30 @@ class PreferencesManager @Inject constructor(
         }
     }
 
+    suspend fun setOpenRouterApiKey(apiKey: String?) {
+        context.dataStore.edit { preferences ->
+            if (apiKey.isNullOrBlank()) {
+                preferences.remove(PreferencesKeys.OPENROUTER_API_KEY)
+            } else {
+                preferences[PreferencesKeys.OPENROUTER_API_KEY] = apiKey.trim()
+            }
+        }
+    }
+
+    suspend fun setOpenRouterModel(model: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.OPENROUTER_MODEL] = model.trim()
+        }
+    }
+
+    suspend fun getOpenRouterApiKey(): String? = openRouterApiKeyFlow.first()
+    suspend fun getOpenRouterModel(): String = openRouterModelFlow.first()
+
     suspend fun getUserId(): String? = userIdFlow.first()
     suspend fun isGuest(): Boolean = isGuestModeFlow.first()
+
+    companion object {
+        const val DEFAULT_OPENROUTER_API_KEY = "thk_live_V6fdHZABaZl_LhEv8IFsG_V5ucq5WhX2iu6lCyWNzzccDdIqxYXke96bSBgDkYLc"
+        const val DEFAULT_OPENROUTER_MODEL = "deepseek-v4.1-flash:free"
+    }
 }

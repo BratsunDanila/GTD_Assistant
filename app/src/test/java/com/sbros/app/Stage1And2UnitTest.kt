@@ -61,7 +61,7 @@ class Stage1And2UnitTest {
 
     @Test
     fun testTaskItemSimplificationText() {
-        val task = SeedData.initialTasks.first { it.id.contains("batteries-buy") }.toDomain()
+        val task = SeedData.initialTasks.first { it.id == SeedData.TASK_BATTERIES_ID }.toDomain()
 
         // Index 0: исходный заголовок
         assertEquals("Заказать аккумуляторы АА на маркетплейсе", task.copy(currentSimplifyIndex = 0).currentStepText)
@@ -111,7 +111,7 @@ class Stage1And2UnitTest {
         assertTrue(tasks.any { it.shelf == ShelfType.SOMEDAY })
 
         // Проверяем, что в курсовой есть 2 шага, и 1-й шаг имеет orderInProject = 1
-        val courseworkTasks = tasks.filter { it.projectId == "project-coursework" }
+        val courseworkTasks = tasks.filter { it.projectId == SeedData.PROJECT_COURSEWORK_ID }
         assertEquals(2, courseworkTasks.size)
         val firstCourseworkStep = courseworkTasks.minByOrNull { it.orderInProject }
         assertNotNull(firstCourseworkStep)

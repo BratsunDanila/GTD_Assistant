@@ -35,7 +35,10 @@ class SyncWorker(
         return if (result.isSuccess) {
             Result.success()
         } else {
-            Result.retry()
+            val exception = result.exceptionOrNull()
+            val isNetwork = exception is java.io.IOException ||
+                    exception?.message?.contains("Unable to resolve host", ignoreCase = true) == true
+            if (isNetwork) Result.retry() else Result.failure()
         }
     }
 

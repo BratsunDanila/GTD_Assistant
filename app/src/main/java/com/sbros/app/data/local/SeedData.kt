@@ -8,6 +8,23 @@ import java.util.Calendar
 
 object SeedData {
 
+    // Valid RFC-4122 UUIDs for PostgreSQL compatibility
+    const val PROJECT_COURSEWORK_ID = "00000001-0000-0000-0000-000000000001"
+    const val PROJECT_SBROS_ID      = "00000001-0000-0000-0000-000000000002"
+
+    const val TASK_BATTERIES_ID          = "00000002-0000-0000-0000-000000000001"
+    const val TASK_TELEGRAM_TOPIC_ID     = "00000002-0000-0000-0000-000000000002"
+    const val TASK_ROOM_DB_ID            = "00000002-0000-0000-0000-000000000003"
+    const val TASK_COURSEWORK_INTRO_ID   = "00000002-0000-0000-0000-000000000004"
+    const val TASK_COURSEWORK_OUTLINE_ID = "00000002-0000-0000-0000-000000000005"
+    const val TASK_CAL_LAB_ID            = "00000002-0000-0000-0000-000000000006"
+    const val TASK_CAL_DEMO_ID           = "00000002-0000-0000-0000-000000000007"
+    const val TASK_CAL_EXAM_ID           = "00000002-0000-0000-0000-000000000008"
+    const val TASK_CAL_COFFEE_ID         = "00000002-0000-0000-0000-000000000009"
+    const val TASK_WAITING_SUPERVISOR_ID = "00000002-0000-0000-0000-000000000010"
+    const val TASK_SOMEDAY_MOVIE_ID      = "00000002-0000-0000-0000-000000000011"
+    const val TASK_REF_GOST_ID           = "00000002-0000-0000-0000-000000000012"
+
     private fun getCalTimestamp(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long {
         val cal = Calendar.getInstance()
         cal.set(Calendar.YEAR, year)
@@ -22,12 +39,12 @@ object SeedData {
 
     val initialProjects = listOf(
         ProjectEntity(
-            id = "project-coursework",
+            id = PROJECT_COURSEWORK_ID,
             title = "Курсовая работа",
             createdAt = System.currentTimeMillis() - 86400000L * 2
         ),
         ProjectEntity(
-            id = "project-sbros",
+            id = PROJECT_SBROS_ID,
             title = "Приложение Сброс",
             createdAt = System.currentTimeMillis() - 86400000L
         )
@@ -36,7 +53,7 @@ object SeedData {
     val initialTasks = listOf(
         // 1. Просто (EASY) — Заказ аккумуляторов
         TaskEntity(
-            id = "task-mech-batteries-buy",
+            id = TASK_BATTERIES_ID,
             projectId = null,
             orderInProject = 0,
             originalQuote = "Очищено из речи: «...короче надо не забыть купить аккумуляторы АА...»",
@@ -72,7 +89,7 @@ object SeedData {
 
         // 2. Просто (EASY) — Староста
         TaskEntity(
-            id = "task-easy-telegram-topic",
+            id = TASK_TELEGRAM_TOPIC_ID,
             projectId = null,
             orderInProject = 0,
             originalQuote = "Очищено из речи: «...блин еще старосте тему скинуть надо...»",
@@ -107,8 +124,8 @@ object SeedData {
 
         // 3. Средне (MEDIUM) — Схема Room
         TaskEntity(
-            id = "task-medium-room-db",
-            projectId = "project-sbros",
+            id = TASK_ROOM_DB_ID,
+            projectId = PROJECT_SBROS_ID,
             orderInProject = 2,
             originalQuote = "Очищено из речи: «...надо в приложении базу данных поправить под контексты...»",
             title = "Настроить схему Room Database для хранения контекстов",
@@ -143,8 +160,8 @@ object SeedData {
 
         // 4. Сложно (HARD) — Курсовая: Введение
         TaskEntity(
-            id = "task-hard-coursework-intro",
-            projectId = "project-coursework",
+            id = TASK_COURSEWORK_INTRO_ID,
+            projectId = PROJECT_COURSEWORK_ID,
             orderInProject = 1,
             originalQuote = "Очищено из речи: «...вообще не знаю когда садиться за первую главу курсача...»",
             title = "Написать черновик введения (3 абзаца)",
@@ -178,8 +195,8 @@ object SeedData {
         ),
 
         TaskEntity(
-            id = "task-hard-coursework-outline",
-            projectId = "project-coursework",
+            id = TASK_COURSEWORK_OUTLINE_ID,
+            projectId = PROJECT_COURSEWORK_ID,
             orderInProject = 2,
             originalQuote = "Из речи: «...составить содержание и список глав...»",
             title = "Составить содержание и список глав",
@@ -213,7 +230,7 @@ object SeedData {
 
         // Календарь: 14 Октября (1 задача)
         TaskEntity(
-            id = "task-cal-lab-report",
+            id = TASK_CAL_LAB_ID,
             projectId = null,
             orderInProject = 0,
             originalQuote = "Назначено в календаре",
@@ -237,7 +254,7 @@ object SeedData {
 
         // Календарь: 22 Октября (3 задачи)
         TaskEntity(
-            id = "task-cal-demo-proto",
+            id = TASK_CAL_DEMO_ID,
             projectId = null,
             orderInProject = 0,
             originalQuote = "Назначено в календаре",
@@ -259,7 +276,7 @@ object SeedData {
             contextCategory = "Разработка и код"
         ),
         TaskEntity(
-            id = "task-cal-exam-modeling",
+            id = TASK_CAL_EXAM_ID,
             projectId = null,
             orderInProject = 0,
             originalQuote = "Назначено в календаре",
@@ -281,7 +298,7 @@ object SeedData {
             contextCategory = "Учеба и вуз"
         ),
         TaskEntity(
-            id = "task-cal-buy-coffee",
+            id = TASK_CAL_COFFEE_ID,
             projectId = null,
             orderInProject = 0,
             originalQuote = "Назначено в календаре",
@@ -305,7 +322,7 @@ object SeedData {
 
         // Полка: Жду ответа (WAITING) — Научрук
         TaskEntity(
-            id = "task-waiting-supervisor",
+            id = TASK_WAITING_SUPERVISOR_ID,
             projectId = null,
             orderInProject = 0,
             originalQuote = "Из речи: «...научрук обещал посмотреть первую главу...»",
@@ -336,7 +353,7 @@ object SeedData {
 
         // Полка: На потом и идеи (SOMEDAY) — Фильм
         TaskEntity(
-            id = "task-someday-movie",
+            id = TASK_SOMEDAY_MOVIE_ID,
             projectId = null,
             orderInProject = 0,
             originalQuote = "Из речи: «...надо глянуть новый фильм на выходных...»",
@@ -367,7 +384,7 @@ object SeedData {
 
         // Полка: Справочник и заметки (REFERENCE) — ГОСТ
         TaskEntity(
-            id = "task-ref-gost",
+            id = TASK_REF_GOST_ID,
             projectId = null,
             orderInProject = 0,
             originalQuote = "Справочная информация",

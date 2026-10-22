@@ -43,14 +43,49 @@ class AuthRepositoryImpl @Inject constructor(
                 return AuthResult.Error("Пароль должен содержать минимум 6 символов")
             }
 
-            supabase.auth.signUpWith(Email) {
-                this.email = trimmedEmail
-                this.password = trimmedPassword
+            try {
+                supabase.auth.signUpWith(Email) {
+                    this.email = trimmedEmail
+                    this.password = trimmedPassword
+                }
+            } catch (e: Exception) {
+                val msg = e.message ?: ""
+                if (msg.contains("already registered", ignoreCase = true) ||
+                    msg.contains("already exists", ignoreCase = true)) {
+                    // Пользователь уже зарегистрирован — сразу входим
+                    return signIn(trimmedEmail, trimmedPassword)
+                }
+                throw e
+            }
+
+            // Пытаемся войти, чтобы сразу получить реальную сессию с JWT-токеном
+            var session = supabase.auth.currentSessionOrNull()
+            if (session == null) {
+                try {
+                    supabase.auth.signInWith(Email) {
+                        this.email = trimmedEmail
+                        this.password = trimmedPassword
+                    }
+                    session = supabase.auth.currentSessionOrNull()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Post-signup sign in note: ${e.message}")
+                    val msg = e.message ?: ""
+                    if (msg.contains("Email not confirmed", ignoreCase = true)) {
+                        return AuthResult.Error(
+                            "Регистрация прошла успешно! Пожалуйста, подтвердите email по ссылке из письма (или отключите 'Confirm email' в настройках Supabase Auth -> Providers -> Email)."
+                        )
+                    }
+                }
             }
 
             val user = supabase.auth.currentUserOrNull()
-            val userId = user?.id ?: java.util.UUID.randomUUID().toString()
+            if (user == null || session == null) {
+                return AuthResult.Error(
+                    "Сессия не активна. Подтвердите email по ссылке из письма или отключите 'Confirm email' в настройках Supabase."
+                )
+            }
 
+            val userId = user.id
             preferencesManager.saveAuthSession(userId, trimmedEmail)
             if (!displayName.isNullOrBlank()) {
                 preferencesManager.setUserName(displayName.trim())
@@ -86,8 +121,12 @@ class AuthRepositoryImpl @Inject constructor(
             }
 
             val user = supabase.auth.currentUserOrNull()
-            val userId = user?.id ?: java.util.UUID.randomUUID().toString()
+            val session = supabase.auth.currentSessionOrNull()
+            if (user == null || session == null) {
+                return AuthResult.Error("Не удалось получить сессию. Проверьте данные и интернет.")
+            }
 
+            val userId = user.id
             preferencesManager.saveAuthSession(userId, trimmedEmail)
 
             // Миграция локальных гостевых задач, если они были созданы до логина
@@ -121,6 +160,10 @@ class AuthRepositoryImpl @Inject constructor(
         return when {
             msg.contains("Invalid login credentials", ignoreCase = true) ->
                 "Неверный email или пароль"
+            msg.contains("Email not confirmed", ignoreCase = true) ->
+                "Почта еще не подтверждена. Перейдите по ссылке из письма или отключите 'Confirm email' в панели Supabase (Auth -> Providers -> Email)."
+            msg.contains("over_email_send_rate_limit", ignoreCase = true) ->
+                "Превышен лимит отправки писем Supabase. Отключите 'Confirm email' в панели Supabase (Auth -> Providers -> Email) для мгновенной регистрации."
             msg.contains("User already registered", ignoreCase = true) ||
             msg.contains("already exists", ignoreCase = true) ->
                 "Пользователь с таким email уже зарегистрирован. Попробуйте войти."

@@ -1,6 +1,9 @@
 package com.sbros.app.data.remote
 
+import android.util.Log
+import com.sbros.app.data.local.PreferencesManager
 import com.sbros.app.data.local.entity.ProjectEntity
+import com.sbros.app.data.remote.dto.AiDraftResultDto
 import com.sbros.app.data.remote.dto.DumpResponseDto
 import com.sbros.app.data.remote.dto.ParsedItemDto
 import java.util.Locale
@@ -12,10 +15,39 @@ interface AiParserApi {
         rawTranscript: String,
         existingProjects: List<ProjectEntity>
     ): DumpResponseDto
+
+    suspend fun decomposeTask(
+        taskTitle: String,
+        category: String
+    ): List<String>
+
+    suspend fun generateDraft(
+        taskTitle: String,
+        category: String
+    ): AiDraftResultDto?
 }
 
 @Singleton
-class AiParserApiImpl @Inject constructor() : AiParserApi {
+class AiParserApiImpl : AiParserApi {
+
+    private val openRouterClient: OpenRouterClient?
+    private val preferencesManager: PreferencesManager?
+
+    @Inject
+    constructor(
+        openRouterClient: OpenRouterClient,
+        preferencesManager: PreferencesManager
+    ) {
+        this.openRouterClient = openRouterClient
+        this.preferencesManager = preferencesManager
+    }
+
+    constructor() {
+        this.openRouterClient = null
+        this.preferencesManager = null
+    }
+
+    private val TAG = "AiParserApi"
 
     override suspend fun parseTranscript(
         rawTranscript: String,
@@ -26,29 +58,153 @@ class AiParserApiImpl @Inject constructor() : AiParserApi {
             return DumpResponseDto(emptyList())
         }
 
-        // Локальный умный GTD-парсер (Mock/Offline режим)
+        if (openRouterClient != null) {
+            val apiKey = preferencesManager?.getOpenRouterApiKey()
+            val model = preferencesManager?.getOpenRouterModel().orEmpty()
+
+            if (!apiKey.isNullOrBlank()) {
+                Log.d(TAG, "Parsing transcript using OpenRouter AI model: $model")
+                val projectTitles = existingProjects.map { it.title }
+                try {
+                    val aiResult = openRouterClient.parseTranscript(
+                        rawTranscript = trimmed,
+                        existingProjects = projectTitles,
+                        apiKey = apiKey,
+                        model = model
+                    )
+
+                    if (aiResult.isSuccess) {
+                        val items = aiResult.getOrNull().orEmpty()
+                        if (items.isNotEmpty()) {
+                            Log.d(TAG, "OpenRouter successfully parsed ${items.size} tasks")
+                            return DumpResponseDto(items)
+                        } else {
+                            Log.w(TAG, "OpenRouter returned empty items, falling back to offline parser")
+                        }
+                    } else {
+                        val error = aiResult.exceptionOrNull()
+                        Log.w(TAG, "OpenRouter call failed: ${error?.message}, falling back to offline parser")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "OpenRouter parsing error: ${e.message}, falling back to offline parser", e)
+                }
+            } else {
+                Log.w(TAG, "OpenRouter API key is missing, using offline parser")
+            }
+        }
+
+        // Офлайн умный GTD-парсер (фоллбэк при недоступности сети/таймауте/ошибках ИИ)
+        Log.i(TAG, "Using smart offline GTD parser for transcript")
+        return parseTranscriptOffline(trimmed, existingProjects)
+    }
+
+    override suspend fun decomposeTask(
+        taskTitle: String,
+        category: String
+    ): List<String> {
+        val apiKey = preferencesManager?.getOpenRouterApiKey()
+        val model = preferencesManager?.getOpenRouterModel().orEmpty()
+
+        if (!apiKey.isNullOrBlank() && openRouterClient != null) {
+            val res = openRouterClient.decomposeTask(taskTitle, category, apiKey, model)
+            if (res.isSuccess) {
+                val steps = res.getOrNull().orEmpty()
+                if (steps.isNotEmpty()) return steps.take(4)
+            }
+        }
+
+        // Офлайн фоллбэк для декомпозиции (строго 3-4 емких шага)
+        val t = taskTitle.lowercase(Locale.ROOT)
+        return when {
+            t.contains("аккумулятор") || t.contains("купить") || t.contains("заказать") -> listOf(
+                "Открыть маркетплейс и найти «$taskTitle»",
+                "Выбрать подходящий вариант по отзывам и цене",
+                "Оформить заказ в ближайший пункт выдачи"
+            )
+            t.contains("старост") || t.contains("отправить") || t.contains("написать") || t.contains("сообщени") -> listOf(
+                "Сформулировать текст сообщения",
+                "Открыть диалог в мессенджере и отправить",
+                "Дождаться ответа и зафиксировать итог"
+            )
+            t.contains("курсов") || t.contains("диплом") || t.contains("реферат") || t.contains("отчет") -> listOf(
+                "Открыть документ с материалами",
+                "Написать черновик текущего раздела без перфекционизма",
+                "Сохранить и отправить на согласование"
+            )
+            else -> listOf(
+                "Подготовить рабочее пространство для задачи «$taskTitle»",
+                "Выполнить основной шаг за 15 минут без отвлечений",
+                "Зафиксировать результат"
+            )
+        }.take(4)
+    }
+
+    override suspend fun generateDraft(
+        taskTitle: String,
+        category: String
+    ): AiDraftResultDto? {
+        val apiKey = preferencesManager?.getOpenRouterApiKey()
+        val model = preferencesManager?.getOpenRouterModel().orEmpty()
+
+        if (!apiKey.isNullOrBlank() && openRouterClient != null) {
+            val res = openRouterClient.generateDraft(taskTitle, category, apiKey, model)
+            if (res.isSuccess) {
+                val draft = res.getOrNull()
+                if (draft != null && draft.draftContent.isNotBlank()) {
+                    return draft
+                }
+            }
+        }
+
+        // Высококачественный мгновенный офлайн-анализ (фоллбэк без воды и без усложнений)
+        val t = taskTitle.lowercase(Locale.ROOT)
+        return when {
+            t.contains("позвонить") || t.contains("набрать") -> AiDraftResultDto(
+                draftType = "Черновик звонка",
+                draftContent = "«Здравствуйте! Звоню по поводу: $taskTitle. Удобно сейчас обсудить?»",
+                aiAdvice = "Звонок займет меньше двух минут. Набери номер прямо сейчас."
+            )
+            t.contains("написать") || t.contains("отправить") || t.contains("старост") || t.contains("сообщени") || t.contains("уточнить") -> AiDraftResultDto(
+                draftType = "Черновик сообщения",
+                draftContent = "«Здравствуйте! Подскажите, пожалуйста, по вопросу: $taskTitle. Заранее спасибо!»",
+                aiAdvice = "Скопируй текст заготовки и отправь в мессенджер."
+            )
+            t.contains("купить") || t.contains("заказать") -> AiDraftResultDto(
+                draftType = "Поисковый запрос",
+                draftContent = "Купить $taskTitle с быстрой доставкой",
+                aiAdvice = "Вставь запрос в поиск маркетплейса и выбери первый подходящий вариант."
+            )
+            t.contains("курсов") || t.contains("диплом") || t.contains("отчет") || t.contains("реферат") -> AiDraftResultDto(
+                draftType = "Первый шаг (2 минуты)",
+                draftContent = "1. Открыть документ по теме «$taskTitle».\n2. Написать заголовок или тезис.\n3. Поставить таймер на 15 минут.",
+                aiAdvice = "Не пытайся сделать всё сразу — начни с открытия документа."
+            )
+            else -> AiDraftResultDto(
+                draftType = "Первый шаг (2 минуты)",
+                draftContent = "Действие: $taskTitle.\nПодготовка: открыть рабочее окно и убрать отвлекающие факторы.",
+                aiAdvice = "Сделай минимальное действие на 2 минуты, чтобы преодолеть сопротивление."
+            )
+        }
+    }
+
+    private fun parseTranscriptOffline(
+        trimmed: String,
+        existingProjects: List<ProjectEntity>
+    ): DumpResponseDto {
         val items = mutableListOf<ParsedItemDto>()
 
-        // 1. Фильтрация эмоционального шума (Venting)
         val sentences = trimmed.split(Regex("[,.;\n]+|\\s+и\\s+|\\s+еще\\s+|\\s+также\\s+"))
             .map { it.trim() }
             .filter { it.isNotBlank() }
 
         for (phrase in sentences) {
             val lower = phrase.lowercase(Locale.ROOT)
-
-            // Пропускаем чистые эмоции и жалобы
-            if (isPureEmotion(lower)) {
-                continue
-            }
+            if (isPureEmotion(lower)) continue
 
             val item = classifyPhrase(phrase, lower, existingProjects)
-            if (item != null) {
-                items.add(item)
-            }
+            if (item != null) items.add(item)
         }
 
-        // Если фраза не разбилась, обрабатываем как единую мысль
         if (items.isEmpty()) {
             val lower = trimmed.lowercase(Locale.ROOT)
             if (!isPureEmotion(lower)) {
@@ -61,11 +217,14 @@ class AiParserApiImpl @Inject constructor() : AiParserApi {
 
     private fun isPureEmotion(lower: String): Boolean {
         val emotionWords = listOf(
-            "как же я устал", "я устал", "ничего не успеваю", "блин", "капец",
-            "жесть", "сил нет", "не могу больше", "кошмар", "ужас", "бесит",
-            "голова кругом", "каша в голове"
+            "как же все достало", "все бесит", "устал от всего", "жесть", "пиздец",
+            "ужас", "нет сил", "не хочу ничего делать", "тяжело", "грустно", "лень",
+            "капец как лень", "хочу спать", "блин", "как же я устал", "я устал", "устал",
+            "ничего не успеваю", "капец"
         )
-        return emotionWords.any { lower == it || lower.startsWith("$it ") || lower.endsWith(" $it") }
+        val hasEmotion = emotionWords.any { lower.contains(it) }
+        val hasAction = listOf("купить", "заказать", "написать", "позвонить", "сделать", "отправить", "курсач", "диплом", "глянуть", "посмотреть", "кино").any { lower.contains(it) }
+        return hasEmotion && !hasAction
     }
 
     private fun classifyPhrase(
@@ -73,43 +232,66 @@ class AiParserApiImpl @Inject constructor() : AiParserApi {
         lower: String,
         existingProjects: List<ProjectEntity>
     ): ParsedItemDto? {
-        val cleanPhrase = original
-            .replace(Regex("^(надо|нужно|хочу|не забыть|хотел бы|было бы круто)\\s+", RegexOption.IGNORE_CASE), "")
-            .trim()
-            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+        val daysRegex = Regex("(?:^|(?<=\\s))(в\\s+понедельник|во\\s+вторник|в\\s+среду|в\\s+четверг|в\\s+пятницу|в\\s+субботу|в\\s+воскресенье|сегодня|завтра|послезавтра)(?=\\s|$)", RegexOption.IGNORE_CASE)
+        val timeRegex = Regex("(?:^|(?<=\\s))(?:в\\s+)?(?:[0-2]?[0-9][:.]00|[0-2]?[0-9]:[0-5][0-9]|[0-2]?[0-9]\\s+[0-5][0-9]|[0-2]?[0-9])(?:\\s*(?:часов|часа|ч))?(?:\\s+(?:вечера|дня|утра|ночи))?(?=\\s|$)", RegexOption.IGNORE_CASE)
+        val fillersRegex = Regex("^(мне\\s+)?(надо|нужно|хочу|не\\s+забыть|стоит\\s+бы|было\\s+бы\\s+здорово|пора|обязательно)\\s+", RegexOption.IGNORE_CASE)
+        val storeRegex = Regex("^(?:мне\\s+)?(?:нужно\\s+)?(?:сходить|пойти|съездить)\\s+в\\s+магазин\\s+(?:и\\s+)?", RegexOption.IGNORE_CASE)
 
+        var cleanPhrase = original
+        var prev: String
+        do {
+            prev = cleanPhrase
+            cleanPhrase = cleanPhrase
+                .replace(daysRegex, " ")
+                .replace(timeRegex, " ")
+                .trim()
+                .replace(fillersRegex, "")
+                .trim()
+                .replace(storeRegex, "")
+                .trim()
+                .replace(Regex("\\s{2,}"), " ")
+                .trim()
+        } while (cleanPhrase != prev && cleanPhrase.isNotBlank())
+
+        if (cleanPhrase.isBlank()) {
+            cleanPhrase = original
+                .replace(fillersRegex, "")
+                .trim()
+        }
         if (cleanPhrase.isBlank()) return null
+
+        cleanPhrase = cleanPhrase.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
 
         val timeText = extractTime(lower)
         val dateMillis = extractDateMillis(lower)
 
-        // Определение смыслового Контекста по sbros_v8.html
         val contextCategory = when {
-            lower.contains("купить") || lower.contains("заказать") || lower.contains("батарейк") ||
-                    lower.contains("аккумулятор") || lower.contains("маркетплейс") || lower.contains("магазин") ||
-                    lower.contains("кофе") || lower.contains("доставк") || lower.contains("пвз") -> "Покупки и заказы"
+            lower.contains("олимпиад") || lower.contains("хакатон") || lower.contains("контест") ||
+                    lower.contains("курсов") || lower.contains("диплом") || lower.contains("вуз") ||
+                    lower.contains("сесси") || lower.contains("экзамен") || lower.contains("препод") ||
+                    lower.contains("универ") || lower.contains("лекци") || lower.contains("декан") -> "Учеба и вуз"
 
-            lower.contains("старост") || lower.contains("курс") || lower.contains("диплом") ||
-                    lower.contains("вуз") || lower.contains("универ") || lower.contains("лаб") ||
-                    lower.contains("зачет") || lower.contains("научрук") || lower.contains("тема") ||
-                    lower.contains("стать") || lower.contains("учеб") -> "Учеба и вуз"
+            lower.contains("купить") || lower.contains("заказать") || lower.contains("озон") ||
+                    lower.contains("вб") || lower.contains("wb") || lower.contains("аптек") ||
+                    lower.contains("магазин") || lower.contains("аккумулятор") -> "Покупки и заказы"
 
-            lower.contains("код") || lower.contains("room") || lower.contains("баз") ||
-                    lower.contains("приложен") || lower.contains("разработк") || lower.contains("git") ||
-                    lower.contains("прототип") || lower.contains("схем") || lower.contains("api") -> "Разработка и код"
+            lower.contains("код") || lower.contains("room") || lower.contains("баг") ||
+                    lower.contains("фич") || lower.contains("проект") || lower.contains("git") ||
+                    lower.contains("коммит") || lower.contains("сервер") || lower.contains("api") -> "Разработка и код"
 
             else -> "Дом и быт"
         }
 
-        // Определение сложности по sbros_v8.html: Просто (EASY) / Средне (MEDIUM) / Сложно (HARD)
         val difficulty = when {
-            lower.contains("курс") || lower.contains("диплом") || lower.contains("глав") ||
-                    lower.contains("введение") || lower.contains("сложн") || lower.contains("зачет") ||
-                    lower.contains("проект") -> "HARD"
+            lower.contains("олимпиад") || lower.contains("хакатон") || lower.contains("контест") ||
+                    lower.contains("диплом") || lower.contains("курсов") || lower.contains("курсач") ||
+                    lower.contains("проект") || lower.contains("экзамен") || lower.contains("сесси") ||
+                    lower.contains("ремонт") || lower.contains("отчет") -> "HARD"
 
-            lower.contains("старост") || lower.contains("сдать") || lower.contains("отчет") || lower.contains("настроить") ||
-                    lower.contains("схем") || lower.contains("код") || lower.contains("разработк") ||
-                    lower.contains("прототип") -> "MEDIUM"
+            lower.contains("сдать") || lower.contains("позвонить") || lower.contains("написать") ||
+                    lower.contains("составить") || lower.contains("выбрать") || lower.contains("отправить") ||
+                    lower.contains("настроить") || lower.contains("уборк") || lower.contains("старост") ||
+                    lower.contains("зачет") -> "MEDIUM"
 
             else -> "EASY"
         }
@@ -120,120 +302,124 @@ class AiParserApiImpl @Inject constructor() : AiParserApi {
             else -> "MECHANICAL"
         }
 
-        // Подсказки шагов декомпозиции (для кнопки "Разбить автоматически с помощью ИИ")
         val suggestedSteps = when (contextCategory) {
-            "Покупки и заказы" -> listOf(
-                "Открыть поиск маркетплейса и вбить точное название",
-                "Выбрать подходящий вариант по отзывам и цене",
-                "Оформить заказ в ближайший ПВЗ"
-            )
             "Учеба и вуз" -> listOf(
-                "Открыть рабочие материалы или конспекты",
-                "Набросать ключевые пункты или тезисы",
-                "Сверить результат с требованиями и сохранить"
+                "Открыть методичку и прочитать требования к разделу",
+                "Написать черновик на 1-2 страницы без самокритики",
+                "Проверить оформление и отправить на согласование"
+            )
+            "Покупки и заказы" -> listOf(
+                "Открыть маркетплейс и найти товар",
+                "Выбрать подходящий по отзывам и цене",
+                "Оформить заказ в ближайший пункт выдачи"
             )
             "Разработка и код" -> listOf(
-                "Сформулировать задачу и проверить текущую ветку в Git",
-                "Написать реализацию и запустить локальные тесты",
-                "Сделать коммит и зафиксировать прогресс"
+                "Локализовать проблему и воспроизвести сценарий",
+                "Написать минимальный фикс и запустить тесты",
+                "Сделать коммит и запушить ветку"
             )
             else -> listOf(
-                "Подготовить всё необходимое для старта",
-                "Выполнить основную часть задачи",
-                "Проверить итог и убрать рабочее место"
+                "Подготовить все необходимое для начала",
+                "Поставить таймер на 15 минут и начать делать",
+                "Зафиксировать результат"
             )
         }
 
-        val aiAdvice = when (contextCategory) {
-            "Покупки и заказы" -> "Выбирай проверенного продавца с быстрой доставкой и гарантией."
-            "Учеба и вуз" -> "Начни с простого драфта из 2-3 предложений — это снимет барьер начала."
-            "Разработка и код" -> "Делай частые коммиты с понятными сообщениями и проверяй сборку."
-            else -> "Раздели дело на короткие понятные действия и сделай первый шаг."
+        val aiAdvice = when (difficulty) {
+            "HARD" -> "Задача кажется объемной. Главное — сесть и сделать первый шаг на 5 минут."
+            "MEDIUM" -> "Сделай прямо сейчас, чтобы освободить мысли для важного."
+            else -> "Займет пару минут. Сделай и вычеркни с чистой совестью."
         }
 
-        // 1. Полка: На потом и отдых (SOMEDAY)
-        if (lower.contains("кино") || lower.contains("фильм") || lower.contains("сериал") ||
-            lower.contains("книг") || lower.contains("поиграть") || lower.contains("выходн") ||
-            lower.contains("отдых") || lower.contains("на потом")
+        // Проверка на "В ожидании" (WAITING)
+        if (lower.contains("жду") || lower.contains("ждем") || lower.contains("ответит") ||
+            lower.contains("пришлет") || lower.contains("доставка") || lower.contains("курьер")
         ) {
             return ParsedItemDto(
-                originalQuote = "Из речи: «$original»",
+                originalQuote = "Из мыслей: «$original»",
                 title = cleanPhrase,
                 simplifiedSteps = listOf(
-                    "Добавить в закладки или заметки",
-                    "Найти трейлер или описание на 1 минуту"
+                    "Написать и вежливо уточнить статус",
+                    "Поставить напоминание на вечер"
                 ),
-                aiHint = "Приятный план на отдых без дедлайнов и обязательств.",
-                categoryBadge = if (timeText != null || dateMillis != null) "Календарь • Отдых" else "Идея • Отдых",
-                estimatedMinutes = 0,
-                shelf = "SOMEDAY",
-                energyLevel = energyLevel,
-                difficulty = difficulty,
-                aiDraftType = "Совет ИИ",
-                aiDraftContent = "Хороший отдых восстанавливает силы. Выбери подходящее время и не думай о делах.",
-                scheduledDateMillis = dateMillis,
-                scheduledTimeText = timeText,
-                contextTag = "home",
-                contextCategory = contextCategory,
-                aiSuggestedSteps = suggestedSteps,
-                aiAdvice = aiAdvice
-            )
-        }
-
-        // 2. Полка: Жду ответа (WAITING)
-        if (lower.contains("жд") || lower.contains("научрук") || lower.contains("ответ") ||
-            lower.contains("проверк") || lower.contains("правк")
-        ) {
-            return ParsedItemDto(
-                originalQuote = "Из речи: «$original»",
-                title = cleanPhrase,
-                simplifiedSteps = listOf(
-                    "Проверить статус или почту",
-                    "Напомнить вежливым сообщением, если не ответят"
-                ),
-                aiHint = "Дело на паузе, от тебя сейчас действий не требуется.",
-                categoryBadge = if (timeText != null || dateMillis != null) "Календарь • Ожидание" else "Ожидание • Контроль",
-                estimatedMinutes = 0,
+                aiHint = "Ты делегировал или ждешь. Зафиксировано на полке ожидания.",
+                categoryBadge = "В ожидании ответа",
+                estimatedMinutes = 2,
                 shelf = "WAITING",
-                energyLevel = energyLevel,
-                difficulty = difficulty,
-                aiDraftType = "Черновик напоминания",
-                aiDraftContent = "«Здравствуйте! Подскажите, пожалуйста, удалось ли посмотреть материалы по $cleanPhrase?»",
+                energyLevel = "MECHANICAL",
+                difficulty = "EASY",
+                aiDraftType = "Уточнение статуса",
+                aiDraftContent = "Здравствуйте! Подскажите, пожалуйста, удалось ли посмотреть?",
                 scheduledDateMillis = dateMillis,
                 scheduledTimeText = timeText,
                 contextTag = "phone",
                 contextCategory = contextCategory,
-                aiSuggestedSteps = suggestedSteps,
-                aiAdvice = aiAdvice
+                aiSuggestedSteps = emptyList(), // Не разбиваем при первичном сбросе мыслей
+                aiAdvice = "Не держи это в голове — когда ответят, задача вернется в фокус."
             )
         }
 
-        // 3. Полка: Большие дела (BIG_THINGS)
-        if (difficulty == "HARD" || lower.contains("курсач") || lower.contains("курсов") ||
-            lower.contains("диплом") || lower.contains("проект")
+        // Проверка на "Когда-нибудь" (SOMEDAY)
+        if (lower.contains("когда-нибудь") || lower.contains("в будущем") || lower.contains("мечтаю") ||
+            lower.contains("хотелось бы когда-то") || lower.contains("посмотреть фильм") ||
+            lower.contains("прочитать книгу") || lower.contains("кино") || lower.contains("фильм") ||
+            lower.contains("сериал")
         ) {
-            val matchedProj = existingProjects.firstOrNull {
-                val projLower = it.title.lowercase(Locale.ROOT)
-                lower.contains(projLower) ||
-                        (projLower.contains("курс") && (lower.contains("курс") || lower.contains("курсач"))) ||
-                        (projLower.contains("диплом") && lower.contains("диплом")) ||
-                        (projLower.contains("сброс") && lower.contains("сброс"))
-            }
-            val projTitle = matchedProj?.title ?: when {
-                lower.contains("курс") -> "Курсовая работа"
-                lower.contains("диплом") -> "Дипломная работа"
-                else -> cleanPhrase.take(30)
-            }
-
             return ParsedItemDto(
-                originalQuote = "Из речи: «$original»",
+                originalQuote = "Из мыслей: «$original»",
                 title = cleanPhrase,
                 simplifiedSteps = listOf(
-                    "Открыть документ и набросать 3 коротких тезиса",
-                    "Просто создать пустой файл и написать заголовок"
+                    "Сохранить ссылку в закладки",
+                    "Выделить 20 минут в выходной"
                 ),
-                aiHint = "ИИ выделил задачу и оценил как сложную для фокуса.",
-                categoryBadge = if (timeText != null || dateMillis != null) "Дедлайн • $projTitle" else "$contextCategory • Сложно",
+                aiHint = "Отличная идея на будущее. Сохранена на полке 'Когда-нибудь'.",
+                categoryBadge = "Идея на будущее",
+                estimatedMinutes = 15,
+                shelf = "SOMEDAY",
+                energyLevel = "FLOW",
+                difficulty = "EASY",
+                aiDraftType = "Заметка",
+                aiDraftContent = "Название: $cleanPhrase\nЗаметка: изучить в спокойный вечер.",
+                scheduledDateMillis = null,
+                scheduledTimeText = null,
+                contextTag = "home",
+                contextCategory = contextCategory,
+                aiSuggestedSteps = emptyList(),
+                aiAdvice = "Такие идеи важно сохранять, чтобы не потерять вдохновение."
+            )
+        }
+
+        // Проверка на "Большое дело" (BIG_THINGS)
+        val isBigThing = difficulty == "HARD" ||
+                lower.contains("проект") || lower.contains("диплом") || lower.contains("курсов") ||
+                lower.contains("курсач") || lower.contains("олимпиад") || lower.contains("хакатон") ||
+                lower.contains("ремонт") || lower.contains("переезд")
+
+        if (isBigThing) {
+            val projTitle = when {
+                lower.contains("олимпиад") -> "Олимпиада"
+                lower.contains("хакатон") -> "Хакатон"
+                lower.contains("диплом") -> "Дипломная работа"
+                lower.contains("курсов") || lower.contains("курсач") -> "Курсовая работа"
+                lower.contains("ремонт") -> "Ремонт"
+                else -> cleanPhrase
+            }
+
+            val matchedProj = existingProjects.find { it.title.equals(projTitle, ignoreCase = true) }
+
+            return ParsedItemDto(
+                originalQuote = "Из мыслей: «$original»",
+                title = cleanPhrase,
+                simplifiedSteps = listOf(
+                    "Открыть документ и написать 3 тезиса",
+                    "Выделить ровно 20 минут без телефона"
+                ),
+                aiHint = "Большое дело разбито на первый понятный шаг.",
+                categoryBadge = when {
+                    timeText != null -> "Дедлайн: $timeText"
+                    dateMillis != null -> "$contextCategory • Проект"
+                    else -> "$contextCategory • Проект"
+                },
                 estimatedMinutes = 20,
                 shelf = "BIG_THINGS",
                 energyLevel = energyLevel,
@@ -241,48 +427,95 @@ class AiParserApiImpl @Inject constructor() : AiParserApi {
                 matchedProjectId = matchedProj?.id,
                 newProjectTitle = if (matchedProj == null) projTitle else null,
                 aiDraftType = "Стартовый план",
-                aiDraftContent = "1. Сформулировать 3 ключевых тезиса.\n2. Набросать черновой каркас введения.\n3. Сверить с методическими указаниями.",
+                aiDraftContent = "1. Сформулировать 3 ключевых вопроса.\n2. Найти 2 источника.\n3. Набросать черновой план.",
                 scheduledDateMillis = dateMillis,
                 scheduledTimeText = timeText,
                 contextTag = "pc",
                 contextCategory = contextCategory,
-                aiSuggestedSteps = suggestedSteps,
+                aiSuggestedSteps = emptyList(), // Не разбиваем при первичном сбросе мыслей
                 aiAdvice = aiAdvice
             )
         }
 
-        // 4. Полка: Простые шаги (SIMPLE_STEPS)
+        // Обычное быстрое дело (SIMPLE_STEPS)
         val isBuy = contextCategory == "Покупки и заказы"
         return ParsedItemDto(
-            originalQuote = "Из речи: «$original»",
+            originalQuote = "Из мыслей: «$original»",
             title = cleanPhrase,
             simplifiedSteps = listOf(
-                "Открыть нужное приложение или диалог",
-                "Сделать первое простое действие на 30 секунд"
+                "Сделать сразу за 2 минуты",
+                "Поставить таймер на 10 минут"
             ),
-            aiHint = "Понятная задача, готовая к быстрому выполнению.",
-            categoryBadge = if (timeText != null || dateMillis != null) "Календарь: ${timeText ?: "срок"}" else "$contextCategory • ${if (difficulty == "EASY") "Просто" else "Средне"}",
+            aiHint = "Конкретное действие, можно сделать прямо сейчас.",
+            categoryBadge = when {
+                timeText != null -> "Время: $timeText"
+                dateMillis != null -> "$contextCategory • В календаре"
+                else -> "$contextCategory • ${if (difficulty == "EASY") "Легкое" else "Быстрое"}"
+            },
             estimatedMinutes = if (isBuy) 3 else 5,
             shelf = "SIMPLE_STEPS",
             energyLevel = energyLevel,
             difficulty = difficulty,
-            aiDraftType = if (isBuy) "Рекомендация ИИ" else "Черновик сообщения",
-            aiDraftContent = if (isBuy) "Поиск: проверенный товар с высоким рейтингом и быстрой доставкой."
-            else "«Привет! Пишу по поводу $cleanPhrase. Всё в процессе, скоро пришлю детали.»",
+            aiDraftType = if (isBuy) "Поисковый запрос" else "Черновик сообщения",
+            aiDraftContent = if (isBuy) "Запрос: купить $cleanPhrase с хорошими отзывами."
+            else "Привет! Насчет $cleanPhrase: сможем обсудить?",
             scheduledDateMillis = dateMillis,
             scheduledTimeText = timeText,
-            contextTag = if (isBuy) "out" else if (lower.contains("телефон") || lower.contains("чат")) "phone" else "home",
+            contextTag = if (isBuy) "out" else if (lower.contains("позвонить") || lower.contains("написать")) "phone" else "home",
             contextCategory = contextCategory,
-            aiSuggestedSteps = suggestedSteps,
+            aiSuggestedSteps = emptyList(), // Не разбиваем при первичном сбросе мыслей
             aiAdvice = aiAdvice
         )
     }
 
     private fun extractTime(lower: String): String? {
-        val timeRegex = Regex("(?:в\\s+)?([0-2]?[0-9][:.]00|[0-2]?[0-9]:[0-5][0-9])")
-        val match = timeRegex.find(lower) ?: return null
-        val raw = match.groupValues[1]
-        return raw.replace(".", ":")
+        // 1. Формат "в 9:45", "в 6:00", "18:30"
+        val colonRegex = Regex("(?:^|(?<=\\s))(?:в\\s+)?([0-2]?[0-9])[:.]([0-5][0-9])(?=\\s|$)")
+        val colonMatch = colonRegex.find(lower)
+        if (colonMatch != null) {
+            var hour = colonMatch.groupValues[1].toIntOrNull() ?: return null
+            val min = colonMatch.groupValues[2].toIntOrNull() ?: 0
+            if (lower.contains("вечер") && hour in 1..11) {
+                hour += 12
+            } else if (lower.contains("дня") && hour in 1..5) {
+                hour += 12
+            } else if (lower.contains("ночи") && hour == 12) {
+                hour = 0
+            }
+            return String.format(Locale.ROOT, "%02d:%02d", hour, min)
+        }
+
+        // 2. Формат "в 9 45", "в 09 45"
+        val spaceTimeRegex = Regex("(?:^|(?<=\\s))в\\s+([0-2]?[0-9])\\s+([0-5][0-9])(?=\\s|$)")
+        val spaceMatch = spaceTimeRegex.find(lower)
+        if (spaceMatch != null) {
+            var hour = spaceMatch.groupValues[1].toIntOrNull() ?: return null
+            val min = spaceMatch.groupValues[2].toIntOrNull() ?: 0
+            if (lower.contains("вечер") && hour in 1..11) {
+                hour += 12
+            } else if (lower.contains("дня") && hour in 1..5) {
+                hour += 12
+            }
+            return String.format(Locale.ROOT, "%02d:%02d", hour, min)
+        }
+
+        // 3. Формат "в 6 вечера", "в 7 вечера", "в 2 дня"
+        val wordTimeRegex = Regex("(?:^|(?<=\\s))в\\s+([0-2]?[0-9])(?:\\s*(?:часов|часа|ч))?(?:\\s+(вечера|дня|утра|ночи))(?=\\s|$)")
+        val wordMatch = wordTimeRegex.find(lower)
+        if (wordMatch != null) {
+            var hour = wordMatch.groupValues[1].toIntOrNull() ?: return null
+            val period = wordMatch.groupValues[2]
+            if (period.contains("вечер") && hour in 1..11) {
+                hour += 12
+            } else if (period.contains("дня") && hour in 1..5) {
+                hour += 12
+            } else if (period.contains("ночи") && hour == 12) {
+                hour = 0
+            }
+            return String.format(Locale.ROOT, "%02d:00", hour)
+        }
+
+        return null
     }
 
     private fun extractDateMillis(lower: String): Long? {
@@ -302,27 +535,26 @@ class AiParserApiImpl @Inject constructor() : AiParserApi {
                 cal.add(java.util.Calendar.DAY_OF_YEAR, 2)
                 return cal.timeInMillis
             }
-            lower.contains("понедельник") || lower.contains("пн") -> return getNextDayOfWeek(java.util.Calendar.MONDAY)
-            lower.contains("вторник") || lower.contains("вт") -> return getNextDayOfWeek(java.util.Calendar.TUESDAY)
-            lower.contains("сред") || lower.contains("ср") -> return getNextDayOfWeek(java.util.Calendar.WEDNESDAY)
-            lower.contains("четверг") || lower.contains("чт") -> return getNextDayOfWeek(java.util.Calendar.THURSDAY)
-            lower.contains("пятниц") || lower.contains("пт") -> return getNextDayOfWeek(java.util.Calendar.FRIDAY)
-            lower.contains("суббот") || lower.contains("сб") -> return getNextDayOfWeek(java.util.Calendar.SATURDAY)
-            lower.contains("воскресень") || lower.contains("вс") -> return getNextDayOfWeek(java.util.Calendar.SUNDAY)
+            else -> {
+                val targetDayOfWeek = when {
+                    lower.contains("понедельник") -> java.util.Calendar.MONDAY
+                    lower.contains("вторник") -> java.util.Calendar.TUESDAY
+                    lower.contains("среду") || lower.contains("среда") -> java.util.Calendar.WEDNESDAY
+                    lower.contains("четверг") -> java.util.Calendar.THURSDAY
+                    lower.contains("пятниц") -> java.util.Calendar.FRIDAY
+                    lower.contains("суббот") -> java.util.Calendar.SATURDAY
+                    lower.contains("воскресень") -> java.util.Calendar.SUNDAY
+                    else -> null
+                }
+                if (targetDayOfWeek != null) {
+                    val currentDay = cal.get(java.util.Calendar.DAY_OF_WEEK)
+                    var diff = targetDayOfWeek - currentDay
+                    if (diff <= 0) diff += 7
+                    cal.add(java.util.Calendar.DAY_OF_YEAR, diff)
+                    return cal.timeInMillis
+                }
+            }
         }
         return null
-    }
-
-    private fun getNextDayOfWeek(dayOfWeek: Int): Long {
-        val cal = java.util.Calendar.getInstance()
-        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
-        cal.set(java.util.Calendar.MINUTE, 0)
-        cal.set(java.util.Calendar.SECOND, 0)
-        cal.set(java.util.Calendar.MILLISECOND, 0)
-        val currentDay = cal.get(java.util.Calendar.DAY_OF_WEEK)
-        var daysDiff = dayOfWeek - currentDay
-        if (daysDiff < 0) daysDiff += 7
-        cal.add(java.util.Calendar.DAY_OF_YEAR, daysDiff)
-        return cal.timeInMillis
     }
 }

@@ -12,9 +12,9 @@ data class DumpResponseDto(
 @Serializable
 data class ParsedItemDto(
     @SerialName("original_quote")
-    val originalQuote: String,
+    val originalQuote: String = "",
     @SerialName("title")
-    val title: String,
+    val title: String = "",
     @SerialName("simplified_steps")
     val simplifiedSteps: List<String> = emptyList(),
     @SerialName("ai_hint")
@@ -24,7 +24,7 @@ data class ParsedItemDto(
     @SerialName("estimated_minutes")
     val estimatedMinutes: Int = 5,
     @SerialName("shelf")
-    val shelf: String, // "SIMPLE_STEPS", "BIG_THINGS", "WAITING", "SOMEDAY", "REFERENCE"
+    val shelf: String = "SIMPLE_STEPS", // "SIMPLE_STEPS", "BIG_THINGS", "WAITING", "SOMEDAY", "REFERENCE"
     @SerialName("energy_level")
     val energyLevel: String = "EASY", // "EASY", "MEDIUM", "HARD" / "MECHANICAL", "SINGLE_STEP", "FLOW"
     @SerialName("difficulty")

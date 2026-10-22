@@ -437,18 +437,19 @@ private fun CalendarTaskItemView(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            val hasExactTime = !task.scheduledTimeText.isNullOrBlank()
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.primaryContainer
+                color = if (hasExactTime) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
             ) {
                 Text(
-                    text = task.scheduledTimeText ?: "14:00",
+                    text = if (hasExactTime) task.scheduledTimeText!! else "Весь день",
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = if (hasExactTime) FontFamily.Monospace else FontFamily.Default,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 11.5.sp
+                        fontSize = 11.sp
                     ),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = if (hasExactTime) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
                 )
             }

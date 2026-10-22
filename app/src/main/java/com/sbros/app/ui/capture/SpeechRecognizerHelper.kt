@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 class SpeechRecognizerHelper(
     private val context: Context,
@@ -90,6 +89,23 @@ class SpeechRecognizerHelper(
         return SpeechRecognizer.isRecognitionAvailable(context) || findRecognitionService() != null
     }
 
+    private fun createRecognitionIntent(): Intent {
+        return Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ru-RU")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
+
+            // Увеличиваем допустимое время естественных пауз пользователя между словами,
+            // чтобы микрофон не прерывался на полуслове
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L)
+        }
+    }
+
     fun startListening() {
         if (_isListening.value) return
 
@@ -129,17 +145,8 @@ class SpeechRecognizerHelper(
                 setRecognitionListener(createListener())
             }
 
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ru-RU")
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
-            }
-
             Log.d("SbrosSpeech", "startListening intent sent")
-            speechRecognizer?.startListening(intent)
+            speechRecognizer?.startListening(createRecognitionIntent())
         } catch (e: SecurityException) {
             Log.e("SbrosSpeech", "SecurityException during init", e)
             _permissionDenied.value = true
@@ -151,13 +158,26 @@ class SpeechRecognizerHelper(
         }
     }
 
-    private fun restartListening() {
+    /**
+     * Бесшовное возобновление прослушивания БЕЗ вызова destroy() и без пересоздания сервиса.
+     * За счёт этого микрофон не выключается с задержкой и не теряет первые слова следующей фразы.
+     */
+    private fun resumeListening() {
         if (!_isListening.value) return
-        mainHandler.postDelayed({
-            if (_isListening.value) {
+        mainHandler.post {
+            if (!_isListening.value) return@post
+            val recognizer = speechRecognizer
+            if (recognizer != null) {
+                try {
+                    recognizer.startListening(createRecognitionIntent())
+                } catch (e: Exception) {
+                    Log.w("SbrosSpeech", "Direct startListening failed, falling back to full init", e)
+                    initAndStartRecognition()
+                }
+            } else {
                 initAndStartRecognition()
             }
-        }, 150)
+        }
     }
 
     fun stopListening() {
@@ -214,7 +234,7 @@ class SpeechRecognizerHelper(
                 val normalized = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
                 _amplitude.value = normalized
 
-                if (normalized > 0.2f) {
+                if (normalized > 0.15f) {
                     lastSpeechTime = System.currentTimeMillis()
                     _isSilenceDetected.value = false
                 }
@@ -241,31 +261,50 @@ class SpeechRecognizerHelper(
                     SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "ERROR_SPEECH_TIMEOUT"
                     else -> "ERROR_CODE_$error"
                 }
-                Log.e("SbrosSpeech", "onError: $errorMsg ($error)")
+                Log.w("SbrosSpeech", "onError: $errorMsg ($error)")
 
                 when (error) {
                     SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
                         _permissionDenied.value = true
                         stopListening()
                     }
+                    SpeechRecognizer.ERROR_NO_MATCH,
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
+                        // Естественная пауза пользователя в речи — бесшовно продолжаем слушать
+                        if (_isListening.value) {
+                            resumeListening()
+                        }
+                    }
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY,
+                    SpeechRecognizer.ERROR_CLIENT -> {
+                        // Если движок занят или сбился — отменяем сессию и мягко перезапускаем через 100мс
+                        if (_isListening.value) {
+                            mainHandler.postDelayed({
+                                if (_isListening.value) {
+                                    try {
+                                        speechRecognizer?.cancel()
+                                        speechRecognizer?.startListening(createRecognitionIntent())
+                                    } catch (_: Exception) {
+                                        initAndStartRecognition()
+                                    }
+                                }
+                            }, 100)
+                        }
+                    }
                     SpeechRecognizer.ERROR_NETWORK,
                     SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
                     SpeechRecognizer.ERROR_SERVER -> {
-                        _errorMessage.value = "Ошибка сети речи. Скачай офлайн-пакет в настройках Google или проверь интернет."
-                        restartListening()
-                    }
-                    SpeechRecognizer.ERROR_NO_MATCH,
-                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
-                        // Естественная пауза пользователя в речи — продолжаем слушать
-                        restartListening()
-                    }
-                    SpeechRecognizer.ERROR_CLIENT,
-                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
-                        // Перезапуск сессии распознавания
-                        restartListening()
+                        _errorMessage.value = "Ошибка сети речи. Проверь интернет или скачай офлайн-пакет Google."
+                        if (_isListening.value) {
+                            mainHandler.postDelayed({
+                                if (_isListening.value) resumeListening()
+                            }, 1000)
+                        }
                     }
                     else -> {
-                        restartListening()
+                        if (_isListening.value) {
+                            resumeListening()
+                        }
                     }
                 }
             }
@@ -287,9 +326,9 @@ class SpeechRecognizerHelper(
 
                 lastSpeechTime = System.currentTimeMillis()
 
-                // Бесшовный цикл: перезапуск для следующей фразы, пока открыта шторка
+                // Бесшовный цикл: возобновляем прослушивание без destroy()
                 if (_isListening.value) {
-                    restartListening()
+                    resumeListening()
                 }
             }
 
